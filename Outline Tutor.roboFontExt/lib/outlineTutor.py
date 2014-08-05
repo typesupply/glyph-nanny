@@ -6,7 +6,7 @@ X duplicate unicode
 Glyph
 -----
 X points at extreme
-- unnecessary points
+X unnecessary points
 X contours overlapping in bad ways / too many contours
 X open paths
 X stray points
@@ -14,9 +14,9 @@ X stray points
 - lines that are just off vertical or horizontal
 X implied s curve
 - odd contour directions
-
 """
 
+import math
 from AppKit import *
 import vanilla
 from defconAppKit.windows.baseWindow import BaseWindowController
@@ -33,6 +33,7 @@ strayPointColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 smallContourColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 textReportColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 impliedSCurveColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
+unnecessaryPointsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 
 # -------
 # Palette
@@ -97,6 +98,10 @@ class OutlineTutorObserver(object):
         d = report.get("impliedSCurves")
         if d:
             self.drawImpliedSCurves(d, scale)
+        # unnecessary points
+        d = report.get("unnecessaryPoints")
+        if d:
+            self.drawUnnecessaryPoints(d, scale)
         # text report
         self.drawTextReport(report, scale)
 
@@ -157,6 +162,24 @@ class OutlineTutorObserver(object):
         path.setLineWidth_(3 * scale)
         path.stroke()
 
+    def drawUnnecessaryPoints(self, contours, scale):
+        path = NSBezierPath.bezierPath()
+        h = 10 * scale
+        for contourIndex, points in contours.items():
+            for pt in points:
+                x, y = pt
+                x1 = x - h
+                x2 = x + h
+                y1 = y - h
+                y2 = y + h
+                path.moveToPoint_((x1, y1))
+                path.lineToPoint_((x2, y2))
+                path.moveToPoint_((x1, y2))
+                path.lineToPoint_((x2, y1))
+        unnecessaryPointsColor.set()
+        path.setLineWidth_(scale)
+        path.stroke()
+
     def drawTextReport(self, report, scale):
         text = []
         d = report.get("duplicateUnicode")
@@ -203,6 +226,7 @@ def getGlyphReport(font, glyph):
         tooSmallContours=testForSmallContours(glyph),
         openContours=testForOpenContours(glyph),
         needPointsAtExtrema=testForPointsAtExtrema(glyph),
+        unnecessaryPoints=testForUnnecessaryPoints(glyph),
         #unnecessaryHandles=testForUnnecessaryHandles(glyph),
         impliedSCurves=testForImpliedSCurve(glyph),
         strayPoints=testForStrayPoints(glyph)
@@ -326,7 +350,6 @@ def _intersectLines((a1, a2), (b1, b2)):
     ua_t = (b2[0] - b1[0]) * (a1[1] - b1[1]) - (b2[1] - b1[1]) * (a1[0] - b1[0]);
     ub_t = (a2[0] - a1[0]) * (a1[1] - b1[1]) - (a2[1] - a1[1]) * (a1[0] - b1[0]);
     u_b  = (b2[1] - b1[1]) * (a2[0] - a1[0]) - (b2[0] - b1[0]) * (a2[1] - a1[1]);
-
     if u_b != 0:
         ua = ua_t / u_b;
         ub = ub_t / u_b;
@@ -342,6 +365,31 @@ def _roundFloat(f, error=10000.0):
 
 def unwrapPoint(pt):
     return pt.x, pt.y
+
+def testForUnnecessaryPoints(glyph):
+    """
+    Consecutive segments shouldn't have the same angle.
+    """
+    unnecessaryPoints = {}
+    for index, contour in enumerate(glyph):
+        for segmentIndex, segment in enumerate(contour):
+            if segment.type == "line":
+                prevSegment = contour[segmentIndex - 1]
+                nextSegment = contour[(segmentIndex + 1) % len(contour)]
+                if nextSegment.type == "line":
+                    thisAngle = _calcAngle(prevSegment.onCurve, segment.onCurve)
+                    nextAngle = _calcAngle(segment.onCurve, nextSegment.onCurve)
+                    if thisAngle == nextAngle:
+                        if index not in unnecessaryPoints:
+                            unnecessaryPoints[index] = []
+                        unnecessaryPoints[index].append(unwrapPoint(segment.onCurve))
+    return unnecessaryPoints
+
+def _calcAngle(point1, point2):
+    width = point2.x - point1.x
+    height = point2.y - point1.y
+    angle = round(math.atan2(height, width) * 180 / math.pi, 3)
+    return angle
 
 # Segments
 
