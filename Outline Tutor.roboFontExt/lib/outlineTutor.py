@@ -12,8 +12,9 @@ X open paths
 X stray points
 - unnecessay handles
 - lines that are just off vertical or horizontal
-- implied s curve
+X implied s curve
 - odd contour directions
+
 """
 
 from AppKit import *
@@ -31,6 +32,7 @@ openContourColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5
 strayPointColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 smallContourColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 textReportColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
+impliedSCurveColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 
 # -------
 # Palette
@@ -91,6 +93,10 @@ class OutlineTutorObserver(object):
         d = report.get("strayPoints")
         if d:
             self.drawStrayPoints(d, scale)
+        # implied S curves
+        d = report.get("impliedSCurves")
+        if d:
+            self.drawImpliedSCurves(d, scale)
         # text report
         self.drawTextReport(report, scale)
 
@@ -140,6 +146,17 @@ class OutlineTutorObserver(object):
         path.setLineWidth_(scale)
         path.stroke()
 
+    def drawImpliedSCurves(self, contours, scale):
+        path = NSBezierPath.bezierPath()
+        for contourIndex, segments in contours.items():
+            for segment in segments:
+                pt0, pt1, pt2, pt3 = segment
+                path.moveToPoint_(pt0)
+                path.curveToPoint_controlPoint1_controlPoint2_(pt3, pt1, pt2)
+        impliedSCurveColor.set()
+        path.setLineWidth_(3 * scale)
+        path.stroke()
+
     def drawTextReport(self, report, scale):
         text = []
         d = report.get("duplicateUnicode")
@@ -187,6 +204,7 @@ def getGlyphReport(font, glyph):
         openContours=testForOpenContours(glyph),
         needPointsAtExtrema=testForPointsAtExtrema(glyph),
         #unnecessaryHandles=testForUnnecessaryHandles(glyph),
+        impliedSCurves=testForImpliedSCurve(glyph),
         strayPoints=testForStrayPoints(glyph)
     )
     return report
@@ -281,6 +299,49 @@ def _getOnCurves(contour):
         pt = segement.onCurve
         points.add((pt.x, pt.y))
     return points
+
+def testForImpliedSCurve(glyph):
+    """
+    Implied S curves are suspicious.
+    """
+    impliedS = {}
+    for index, contour in enumerate(glyph):
+        prev = unwrapPoint(contour[-1].onCurve)
+        for segment in contour:
+            if segment.type == "curve":
+                pt0 = prev
+                pt1, pt2 = [unwrapPoint(p) for p in segment.offCurve]
+                pt3 = unwrapPoint(segment.onCurve)
+                line1 = (pt0, pt3)
+                line2 = (pt1, pt2)
+                if index not in impliedS:
+                    impliedS[index] = []
+                if _intersectLines(line1, line2):
+                    impliedS[index].append((prev, pt1, pt2, pt3))
+            prev = unwrapPoint(segment.onCurve)
+    return impliedS
+
+def _intersectLines((a1, a2), (b1, b2)):
+    # adapted from: http://www.kevlindev.com/gui/math/intersection/Intersection.js
+    ua_t = (b2[0] - b1[0]) * (a1[1] - b1[1]) - (b2[1] - b1[1]) * (a1[0] - b1[0]);
+    ub_t = (a2[0] - a1[0]) * (a1[1] - b1[1]) - (a2[1] - a1[1]) * (a1[0] - b1[0]);
+    u_b  = (b2[1] - b1[1]) * (a2[0] - a1[0]) - (b2[0] - b1[0]) * (a2[1] - a1[1]);
+
+    if u_b != 0:
+        ua = ua_t / u_b;
+        ub = ub_t / u_b;
+        if 0 <= ua and ua <= 1 and 0 <= ub and ub <= 1:
+            return a1[0] + ua * (a2[0] - a1[0]), a1[1] + ua * (a2[1] - a1[1])
+        else:
+            return None
+    else:
+        return None
+
+def _roundFloat(f, error=10000.0):
+    return round(f * error) / error
+
+def unwrapPoint(pt):
+    return pt.x, pt.y
 
 # Segments
 
