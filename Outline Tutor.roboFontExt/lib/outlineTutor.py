@@ -47,6 +47,7 @@ textReportColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 0, 0.7, 0.
 impliedSCurveColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.8, 0, 0.85)
 unnecessaryPointsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 unnecessaryHandlesColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
+overlappingPointsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 
 # -------
 # Palette
@@ -74,6 +75,7 @@ class OutlineTutorControls(BaseWindowController):
             dict(key="extremePoints", title="Extreme Points"),
             dict(key="unnecessaryPoints", title="Unnecessary Points"),
             dict(key="unnecessaryHandles", title="Unnecessary Handles"),
+            dict(key="overlappingPoints", title="Overlapping Points"),
             dict(key="complexCurves", title="Complex Curves"),
         ]
         self.buildSettingsGroup("outlineChecks", "Outline Checks", controls)
@@ -164,6 +166,10 @@ class OutlineTutorObserver(object):
         d = report.get("unnecessaryHandles")
         if d:
             self.drawUnnecessaryHandles(d, scale)
+        # overlapping points
+        d = report.get("overlappingPoints")
+        if d:
+            self.drawOverlappingPoints(d, scale)
         # text report
         self.drawTextReport(report, scale)
 
@@ -272,6 +278,21 @@ class OutlineTutorObserver(object):
                 mid = calcMid(bcp1, bcp2)
                 drawString(mid, "Unnecessary Handles", 10, scale, unnecessaryHandlesColor, backgroundColor=NSColor.whiteColor())
 
+    def drawOverlappingPoints(self, contours, scale):
+        path = NSBezierPath.bezierPath()
+        d = 10 * scale
+        h = d / 2.0
+        q = h / 2.0
+        for contourIndex, points in contours.items():
+            for (x, y) in points:
+                r = ((x - d + q, y - q), (d, d))
+                path.appendBezierPathWithOvalInRect_(r)
+                r = ((x - q, y - d + q), (d, d))
+                path.appendBezierPathWithOvalInRect_(r)
+                drawString((x, y - (12 * scale)), "Overlapping Points", 10, scale, overlappingPointsColor)
+        overlappingPointsColor.set()
+        path.fill()
+
     def drawTextReport(self, report, scale):
         text = []
         d = report.get("unicodeValue")
@@ -335,6 +356,7 @@ def getGlyphReport(font, glyph, testStates):
         extremePoints=testForExtremePoints,
         unnecessaryPoints=testForUnnecessaryPoints,
         unnecessaryHandles=testForUnnecessaryHandles,
+        overlappingPoints=testForOverlappingPoints,
         complexCurves=testForComplexCurves,
     )
     report = {}
@@ -467,6 +489,24 @@ def testForUnnecessaryPoints(glyph):
                             unnecessaryPoints[index] = []
                         unnecessaryPoints[index].append(_unwrapPoint(segment.onCurve))
     return unnecessaryPoints
+
+def testForOverlappingPoints(glyph):
+    """
+    Consequtive points should not overlap.
+    """
+    overlappingPoints = {}
+    for index, contour in enumerate(glyph):
+        if len(contour) == 1:
+            continue
+        prev = _unwrapPoint(contour[-1].onCurve)
+        for segment in contour:
+            point = _unwrapPoint(segment.onCurve)
+            if point == prev:
+                if index not in overlappingPoints:
+                    overlappingPoints[index] = set()
+                overlappingPoints[index].add(point)
+            prev = point
+    return overlappingPoints
 
 # Segments
 
