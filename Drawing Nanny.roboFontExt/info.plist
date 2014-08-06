@@ -6,9 +6,9 @@
 	<array>
 		<dict>
 			<key>path</key>
-			<string>drawingNanny.py</string>
+			<string>glyphNanny.py</string>
 			<key>preferredName</key>
-			<string>Drawing Nanny</string>
+			<string>Glyph Nanny</string>
 			<key>shortKey</key>
 			<string></string>
 		</dict>
@@ -24,7 +24,7 @@
 	<key>mainScript</key>
 	<string></string>
 	<key>name</key>
-	<string>Drawing Nanny</string>
+	<string>Glyph Nanny</string>
 	<key>timeStamp</key>
 	<real>1407259268.360523</real>
 	<key>version</key>

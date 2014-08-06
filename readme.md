@@ -1,4 +1,4 @@
-# Drawing Nanny
+# Glyph Nanny
 
 ![Screen Shot](screenshot.png "Screen Shot")
 
