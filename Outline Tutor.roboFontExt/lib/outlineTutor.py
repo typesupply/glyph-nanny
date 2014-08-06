@@ -17,6 +17,7 @@ X implied s curve
 - overlapping points on the same contour
 - points just off vertical metric
 - duplicate contours
+- test unicode against agl
 
 X the colors need to vary and perhaps the interface
   needs some sort or color indication. or, more text
@@ -30,8 +31,9 @@ from fontTools.misc.bezierTools import splitCubicAtT
 from AppKit import *
 import vanilla
 from defconAppKit.windows.baseWindow import BaseWindowController
+from mojo.roboFont import CurrentGlyph
+from mojo.UI import UpdateCurrentGlyphView
 from mojo.events import addObserver, removeObserver
-from mojo import drawingTools
 
 # ------
 # Colors
@@ -53,17 +55,34 @@ unnecessaryHandlesColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0,
 class OutlineTutorControls(BaseWindowController):
 
     def __init__(self):
-        self.w = vanilla.FloatingWindow((170, 300))
+        self.keysToControls = {}
 
-        t = 10
-        self.w.glyphAttributesTitle = vanilla.TextBox((10, t, -10, 14), "Glyph Attributes", sizeStyle="small")
-        self.w.glyphAttributesLine = vanilla.HorizontalLine((10, t + 18, -10, 1))
-        t += 24
-        self.w.duplicateUnicodeCheckBox = vanilla.CheckBox((10, t, -10, 18), "Duplicate Unicode Value", value=True, sizeStyle="small")
-        t += 20
+        self.w = vanilla.FloatingWindow((145, 300))
+
+        self.top = 10
+
+        controls = [
+            dict(key="unicodeValue", title="Unicode Value"),
+            dict(key="contourCount", title="Contour Count")
+        ]
+        self.buildSettingsGroup("glyphChecks", "Glyph Checks", controls)
+
+        controls = [
+            dict(key="strayPoints", title="Stray Points"),
+            dict(key="smallContours", title="Small Contours"),
+            dict(key="openContours", title="Open Contours"),
+            dict(key="extremePoints", title="Extreme Points"),
+            dict(key="unnecessaryPoints", title="Unnecessary Points"),
+            dict(key="unnecessaryHandles", title="Unnecessary Handles"),
+            dict(key="complexCurves", title="Complex Curves"),
+        ]
+        self.buildSettingsGroup("outlineChecks", "Outline Checks", controls)
 
         self.setUpBaseWindowBehavior()
         self.startObserver()
+
+        self.settingsCallback(None)
+
         self.w.open()
 
     def windowCloseCallback(self, sender):
@@ -72,11 +91,36 @@ class OutlineTutorControls(BaseWindowController):
     def startObserver(self):
         self.observer = OutlineTutorObserver()
         addObserver(self.observer, "drawComments", "drawBackground")
+        addObserver(self.observer, "drawComments", "drawInactive")
 
     def stopObserver(self):
         removeObserver(self.observer, "drawBackground")
+        removeObserver(self.observer, "drawInactive")
         self.observer = None
 
+    def buildSettingsGroup(self, groupID, title, items):
+        tb = vanilla.TextBox((10, self.top, -10, 14), title, sizeStyle="small")
+        l = vanilla.HorizontalLine((10, self.top + 18, -10, 1))
+        setattr(self.w, groupID + "Title", tb)
+        setattr(self.w, groupID + "Line", l)
+        self.top += 24
+        for item in items:
+            key = item["key"]
+            attr = key + "CheckBox"
+            title = item["title"]
+            default = item.get("default", True)
+            cb = vanilla.CheckBox((10, self.top, -10, 18), title, value=default, sizeStyle="small", callback=self.settingsCallback)
+            setattr(self.w, attr, cb)
+            self.keysToControls[key] = cb
+            self.top += 20
+        self.top += 10
+
+    def settingsCallback(self, sender):
+        testStates = {}
+        for key, cb in self.keysToControls.items():
+            testStates[key] = cb.get()
+        self.observer.setTestStates(testStates)
+        UpdateCurrentGlyphView()
 
 # ----------------
 # Drawing Observer
@@ -84,17 +128,20 @@ class OutlineTutorControls(BaseWindowController):
 
 class OutlineTutorObserver(object):
 
+    def setTestStates(self, testStates):
+        self.testStates = testStates
+
     def drawComments(self, info):
         glyph = info["glyph"]
         font = glyph.getParent()
         scale = info["scale"]
-        report = getGlyphReport(font, glyph)
+        report = getGlyphReport(font, glyph, self.testStates)
         # small contours
-        d = report.get("tooSmallContours")
+        d = report.get("smallContours")
         if d:
             self.drawSmallContours(d, scale)
         # implied S curves
-        d = report.get("impliedSCurves")
+        d = report.get("complexCurves")
         if d:
             self.drawImpliedSCurves(d, scale)
         # open contours
@@ -102,7 +149,7 @@ class OutlineTutorObserver(object):
         if d:
             self.drawOpenContours(d, scale)
         # missing extremes
-        d = report.get("needPointsAtExtrema")
+        d = report.get("extremePoints")
         if d:
             self.drawMissingExtrema(d, scale)
         # stray points
@@ -227,10 +274,10 @@ class OutlineTutorObserver(object):
 
     def drawTextReport(self, report, scale):
         text = []
-        d = report.get("duplicateUnicode")
+        d = report.get("unicodeValue")
         if d:
             text.append("The Unicode for this glyph is also used by: %s." % " ".join(d))
-        d = report.get("tooManyOverlappingContours")
+        d = report.get("contourCount")
         if d:
             text.append("This glyph has a unusally high number of overlapping contours.")
         text = "\n".join(text)
@@ -278,23 +325,29 @@ def calcMid(pt1, pt2):
 # Reporter
 # --------
 
-def getGlyphReport(font, glyph):
-    report = dict(
-        duplicateUnicode=testForDuplicateUnicode(glyph),
-        tooManyOverlappingContours=testOverlappingContours(glyph),
-        tooSmallContours=testForSmallContours(glyph),
-        openContours=testForOpenContours(glyph),
-        needPointsAtExtrema=testForPointsAtExtrema(glyph),
-        unnecessaryPoints=testForUnnecessaryPoints(glyph),
-        unnecessaryHandles=testForUnnecessaryHandles(glyph),
-        impliedSCurves=testForImpliedSCurve(glyph),
-        strayPoints=testForStrayPoints(glyph)
+def getGlyphReport(font, glyph, testStates):
+    tests = dict(
+        unicodeValue=testUnicodeValue,
+        contourCount=testContourCount,
+        strayPoints=testForStrayPoints,
+        smallContours=testForSmallContours,
+        openContours=testForOpenContours,
+        extremePoints=testForExtremePoints,
+        unnecessaryPoints=testForUnnecessaryPoints,
+        unnecessaryHandles=testForUnnecessaryHandles,
+        complexCurves=testForComplexCurves,
     )
+    report = {}
+    for key, test in tests.items():
+        if testStates.get(key, True):
+            report[key] = test(glyph)
+        else:
+            report[key] = None
     return report
 
 # Glyph Data
 
-def testForDuplicateUnicode(glyph):
+def testUnicodeValue(glyph):
     """
     A Unicode value should appear only once per font.
     """
@@ -313,7 +366,7 @@ def testForDuplicateUnicode(glyph):
 
 # Glyph Construction
 
-def testOverlappingContours(glyph):
+def testContourCount(glyph):
     """
     There shouldn't be too many overlapping contours.
     """
@@ -359,7 +412,7 @@ def testForOpenContours(glyph):
             openContours[index] = (start, end)
     return openContours
 
-def testForPointsAtExtrema(glyph):
+def testForExtremePoints(glyph):
     """
     Points should be at the extrema.
     """
@@ -375,9 +428,9 @@ def testForPointsAtExtrema(glyph):
             pointsAtExtrema[index] = testPoints - points
     return pointsAtExtrema
 
-def testForImpliedSCurve(glyph):
+def testForComplexCurves(glyph):
     """
-    Implied S curves are suspicious.
+    S curves are suspicious.
     """
     impliedS = {}
     for index, contour in enumerate(glyph):
