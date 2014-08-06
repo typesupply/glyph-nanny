@@ -17,17 +17,18 @@ X implied s curve
 X overlapping points on the same contour
 X points just off vertical metric
 - duplicate contours
-- test unicode against agl
+X test unicode against agl
 
 X the colors need to vary and perhaps the interface
   needs some sort or color indication. or, more text
   needs to be drawn.
-- finish the interface and incorporate it into the observer
+X finish the interface and incorporate it into the observer
 - use a representation factory for the report
 """
 
 import math
 from fontTools.misc.bezierTools import splitCubicAtT
+from fontTools.agl import AGL2UV
 from AppKit import *
 import vanilla
 from defconAppKit.windows.baseWindow import BaseWindowController
@@ -151,7 +152,7 @@ class OutlineTutorObserver(object):
         # implied S curves
         d = report.get("complexCurves")
         if d:
-            self.drawImpliedSCurves(d, scale)
+            self.drawComplexCurves(d, scale)
         # open contours
         d = report.get("openContours")
         if d:
@@ -159,7 +160,7 @@ class OutlineTutorObserver(object):
         # missing extremes
         d = report.get("extremePoints")
         if d:
-            self.drawMissingExtrema(d, scale)
+            self.drawExtremePoints(d, scale)
         # stray points
         d = report.get("strayPoints")
         if d:
@@ -205,7 +206,7 @@ class OutlineTutorObserver(object):
             path.stroke()
             drawString(mid, "Open Contour", 10, scale, openContourColor, backgroundColor=NSColor.whiteColor())
 
-    def drawMissingExtrema(self, contours, scale):
+    def drawExtremePoints(self, contours, scale):
         path = NSBezierPath.bezierPath()
         d = 16 * scale
         h = d / 2.0
@@ -235,7 +236,7 @@ class OutlineTutorObserver(object):
         path.setLineWidth_(scale)
         path.stroke()
 
-    def drawImpliedSCurves(self, contours, scale):
+    def drawComplexCurves(self, contours, scale):
         impliedSCurveColor.set()
         for contourIndex, segments in contours.items():
             for segment in segments:
@@ -318,21 +319,18 @@ class OutlineTutorObserver(object):
             path.moveToPoint_((xMin, verticalMetric))
             path.lineToPoint_((xMax, verticalMetric))
         pointsNearVerticalMetricsColor.set()
-        path.setLineWidth_(2 * scale)
+        path.setLineWidth_(4 * scale)
         path.stroke()
 
     def drawTextReport(self, report, scale):
         text = []
-        d = report.get("unicodeValue")
-        if d:
-            text.append("The Unicode for this glyph is also used by: %s." % " ".join(d))
-        d = report.get("contourCount")
-        if d:
-            text.append("This glyph has a unusally high number of overlapping contours.")
-        text = "\n".join(text)
-        x = 50
-        y = 50
-        drawString((x, y), text, 16, scale, textReportColor, alignment="left")
+        text += report.get("unicodeValue", [])
+        text += report.get("contourCount")
+        if text:
+            text = "\n".join(text)
+            x = 50
+            y = 50
+            drawString((x, y), text, 16, scale, textReportColor, alignment="left")
 
 # Utilities
 
@@ -402,18 +400,25 @@ def testUnicodeValue(glyph):
     """
     A Unicode value should appear only once per font.
     """
+    report = []
     font = glyph.getParent()
     uni = glyph.unicode
-    if uni is None:
-        return None
-    duplicates = []
-    for name in sorted(font.keys()):
-        if name == glyph.name:
-            continue
-        other = font[name]
-        if other.unicode == uni:
-            duplicates.append(name)
-    return duplicates
+    name = glyph.name
+    # test against AGL
+    expectedUni = AGL2UV.get(name)
+    if expectedUni != uni:
+        report.append("The Unicode value for this glyph may not be correct.")
+    # look for duplicates
+    if uni is not None:
+        duplicates = []
+        for name in sorted(font.keys()):
+            if name == glyph.name:
+                continue
+            other = font[name]
+            if other.unicode == uni:
+                duplicates.append(name)
+        report.append("The Unicode for this glyph is also used by: %s." % " ".join(duplicates))
+    return report
 
 # Glyph Construction
 
@@ -421,12 +426,13 @@ def testContourCount(glyph):
     """
     There shouldn't be too many overlapping contours.
     """
+    report = []
     count = len(glyph)
     test = glyph.copy()
     test.removeOverlap()
     if count - len(test) > 2:
-        return True
-    return False
+        report.append("This glyph has a unusally high number of overlapping contours.")
+    return report
 
 # Contours
 
