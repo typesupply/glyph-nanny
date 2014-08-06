@@ -20,6 +20,7 @@ X implied s curve
   needs some sort or color indication. or, more text
   needs to be drawn.
 - finish the interface and incorporate it into the observer
+- use a representation factory for the report
 """
 
 import math
@@ -252,7 +253,6 @@ def getGlyphReport(font, glyph):
     )
     return report
 
-
 # Glyph Data
 
 def testForDuplicateUnicode(glyph):
@@ -336,54 +336,26 @@ def testForPointsAtExtrema(glyph):
             pointsAtExtrema[index] = testPoints - points
     return pointsAtExtrema
 
-def _getOnCurves(contour):
-    points = set()
-    for segement in contour:
-        pt = segement.onCurve
-        points.add((pt.x, pt.y))
-    return points
-
 def testForImpliedSCurve(glyph):
     """
     Implied S curves are suspicious.
     """
     impliedS = {}
     for index, contour in enumerate(glyph):
-        prev = unwrapPoint(contour[-1].onCurve)
+        prev = _unwrapPoint(contour[-1].onCurve)
         for segment in contour:
             if segment.type == "curve":
                 pt0 = prev
-                pt1, pt2 = [unwrapPoint(p) for p in segment.offCurve]
-                pt3 = unwrapPoint(segment.onCurve)
+                pt1, pt2 = [_unwrapPoint(p) for p in segment.offCurve]
+                pt3 = _unwrapPoint(segment.onCurve)
                 line1 = (pt0, pt3)
                 line2 = (pt1, pt2)
                 if index not in impliedS:
                     impliedS[index] = []
                 if _intersectLines(line1, line2):
                     impliedS[index].append((prev, pt1, pt2, pt3))
-            prev = unwrapPoint(segment.onCurve)
+            prev = _unwrapPoint(segment.onCurve)
     return impliedS
-
-def _intersectLines((a1, a2), (b1, b2)):
-    # adapted from: http://www.kevlindev.com/gui/math/intersection/Intersection.js
-    ua_t = (b2[0] - b1[0]) * (a1[1] - b1[1]) - (b2[1] - b1[1]) * (a1[0] - b1[0]);
-    ub_t = (a2[0] - a1[0]) * (a1[1] - b1[1]) - (a2[1] - a1[1]) * (a1[0] - b1[0]);
-    u_b  = (b2[1] - b1[1]) * (a2[0] - a1[0]) - (b2[0] - b1[0]) * (a2[1] - a1[1]);
-    if u_b != 0:
-        ua = ua_t / u_b;
-        ub = ub_t / u_b;
-        if 0 <= ua and ua <= 1 and 0 <= ub and ub <= 1:
-            return a1[0] + ua * (a2[0] - a1[0]), a1[1] + ua * (a2[1] - a1[1])
-        else:
-            return None
-    else:
-        return None
-
-def _roundFloat(f, error=10000.0):
-    return round(f * error) / error
-
-def unwrapPoint(pt):
-    return pt.x, pt.y
 
 def testForUnnecessaryPoints(glyph):
     """
@@ -401,16 +373,8 @@ def testForUnnecessaryPoints(glyph):
                     if thisAngle == nextAngle:
                         if index not in unnecessaryPoints:
                             unnecessaryPoints[index] = []
-                        unnecessaryPoints[index].append(unwrapPoint(segment.onCurve))
+                        unnecessaryPoints[index].append(_unwrapPoint(segment.onCurve))
     return unnecessaryPoints
-
-def _calcAngle(point1, point2, r=None):
-    width = point2.x - point1.x
-    height = point2.y - point1.y
-    angle = round(math.atan2(height, width) * 180 / math.pi, 3)
-    if r is not None:
-        angle = round(angle, r)
-    return angle
 
 # Segments
 
@@ -437,7 +401,7 @@ def testForUnnecessaryHandles(glyph):
                     bcp1 = True
                 if bcpAngle2 == lineAngle:
                     bcp2 = True
-                if bcp1 or bcp2:
+                if bcp1 and bcp2:
                     if index not in unnecessaryHandles:
                         unnecessaryHandles[index] = []
                     if bcp1:
@@ -460,6 +424,41 @@ def testForStrayPoints(glyph):
             pt = (pt.x, pt.y)
             strayPoints[index] = pt
     return strayPoints
+
+# Utilities
+
+def _getOnCurves(contour):
+    points = set()
+    for segement in contour:
+        pt = segement.onCurve
+        points.add((pt.x, pt.y))
+    return points
+
+def _unwrapPoint(pt):
+    return pt.x, pt.y
+
+def _intersectLines((a1, a2), (b1, b2)):
+    # adapted from: http://www.kevlindev.com/gui/math/intersection/Intersection.js
+    ua_t = (b2[0] - b1[0]) * (a1[1] - b1[1]) - (b2[1] - b1[1]) * (a1[0] - b1[0]);
+    ub_t = (a2[0] - a1[0]) * (a1[1] - b1[1]) - (a2[1] - a1[1]) * (a1[0] - b1[0]);
+    u_b  = (b2[1] - b1[1]) * (a2[0] - a1[0]) - (b2[0] - b1[0]) * (a2[1] - a1[1]);
+    if u_b != 0:
+        ua = ua_t / u_b;
+        ub = ub_t / u_b;
+        if 0 <= ua and ua <= 1 and 0 <= ub and ub <= 1:
+            return a1[0] + ua * (a2[0] - a1[0]), a1[1] + ua * (a2[1] - a1[1])
+        else:
+            return None
+    else:
+        return None
+
+def _calcAngle(point1, point2, r=None):
+    width = point2.x - point1.x
+    height = point2.y - point1.y
+    angle = round(math.atan2(height, width) * 180 / math.pi, 3)
+    if r is not None:
+        angle = round(angle, r)
+    return angle
 
 
 if __name__ == "__main__":
