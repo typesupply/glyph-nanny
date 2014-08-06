@@ -16,8 +16,9 @@ X implied s curve
 X crossed handles
 X overlapping points on the same contour
 X points just off vertical metric
-- duplicate contours
+X duplicate contours
 X test unicode against agl
+- bcps that are not collinear
 
 X the colors need to vary and perhaps the interface
   needs some sort or color indication. or, more text
@@ -29,6 +30,8 @@ X finish the interface and incorporate it into the observer
 import math
 from fontTools.misc.bezierTools import splitCubicAtT
 from fontTools.agl import AGL2UV
+from fontTools.pens.cocoaPen import CocoaPen
+from robofab.pens.digestPen import DigestPointPen
 from AppKit import *
 import vanilla
 from defconAppKit.windows.baseWindow import BaseWindowController
@@ -57,6 +60,7 @@ overlappingPointsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 
 pointsNearVerticalMetricsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
 straightLineColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
 crossedHandlesColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
+duplicateContourColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 
 # -------
 # Palette
@@ -170,6 +174,10 @@ class OutlineTutorObserver(object):
         d = report.get("straightLines")
         if d:
             self.drawStraightLines(d, scale)
+        # duplicate contours
+        d = report.get("duplicateContours")
+        if d:
+            self.drawDuplicateContours(d, scale)
         # open contours
         d = report.get("openContours")
         if d:
@@ -222,6 +230,23 @@ class OutlineTutorObserver(object):
             path.setLineDash_count_phase_([4], 1, 0.0)
             path.stroke()
             drawString(mid, "Open Contour", 10, scale, openContourColor, backgroundColor=NSColor.whiteColor())
+
+    def drawDuplicateContours(self, contours, scale):
+        glyph = CurrentGlyph()
+        font = glyph.getParent()
+        duplicateContourColor.set()
+        for contourIndex in contours:
+            contour = glyph[contourIndex]
+            pen = CocoaPen(font)
+            contour.draw(pen)
+            path = pen.path
+            path.fill()
+            path.setLineWidth_(5 * scale)
+            path.stroke()
+            xMin, yMin, xMax, yMax = contour.box
+            mid = calcMid((xMin, yMin), (xMax, yMin))
+            x, y = mid
+            drawString((x, y - (10 * scale)), "Duplicate Contour", 10, scale, duplicateContourColor)
 
     def drawExtremePoints(self, contours, scale):
         path = NSBezierPath.bezierPath()
@@ -443,6 +468,7 @@ def getGlyphReport(font, glyph, testStates):
         strayPoints=testForStrayPoints,
         smallContours=testForSmallContours,
         openContours=testForOpenContours,
+        duplicateContours=testDuplicateContours,
         extremePoints=testForExtremePoints,
         unnecessaryPoints=testForUnnecessaryPoints,
         unnecessaryHandles=testForUnnecessaryHandles,
@@ -499,6 +525,26 @@ def testContourCount(glyph):
     if count - len(test) > 2:
         report.append("This glyph has a unusally high number of overlapping contours.")
     return report
+
+def testDuplicateContours(glyph):
+    """
+    Contours shouldn't be duplicated on each other.
+    """
+    contours = {}
+    for index, contour in enumerate(glyph):
+        contour = contour.copy()
+        contour.autoStartSegment()
+        pen = DigestPointPen()
+        contour.drawPoints(pen)
+        digest = pen.getDigest()
+        if digest not in contours:
+            contours[digest] = []
+        contours[digest].append(index)
+    duplicateContours = []
+    for digest, indexes in contours.items():
+        if len(indexes) > 1:
+            duplicateContours.append(indexes[0])
+    return duplicateContours
 
 # Contours
 
