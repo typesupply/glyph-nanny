@@ -14,8 +14,8 @@ X unnecessay handles
 - lines that are just off vertical or horizontal
 X implied s curve
 - crossed handles
-- overlapping points on the same contour
-- points just off vertical metric
+X overlapping points on the same contour
+X points just off vertical metric
 - duplicate contours
 - test unicode against agl
 
@@ -48,6 +48,7 @@ impliedSCurveColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.8, 0,
 unnecessaryPointsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 unnecessaryHandlesColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 overlappingPointsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
+pointsNearVerticalMetricsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
 
 # -------
 # Palette
@@ -58,7 +59,7 @@ class OutlineTutorControls(BaseWindowController):
     def __init__(self):
         self.keysToControls = {}
 
-        self.w = vanilla.FloatingWindow((145, 300))
+        self.w = vanilla.FloatingWindow((185, 300))
 
         self.top = 10
 
@@ -76,6 +77,7 @@ class OutlineTutorControls(BaseWindowController):
             dict(key="unnecessaryPoints", title="Unnecessary Points"),
             dict(key="unnecessaryHandles", title="Unnecessary Handles"),
             dict(key="overlappingPoints", title="Overlapping Points"),
+            dict(key="pointsNearVerticalMetrics", title="Points Near Vertical Metrics"),
             dict(key="complexCurves", title="Complex Curves"),
         ]
         self.buildSettingsGroup("outlineChecks", "Outline Checks", controls)
@@ -142,6 +144,10 @@ class OutlineTutorObserver(object):
         d = report.get("smallContours")
         if d:
             self.drawSmallContours(d, scale)
+        # points near vertical metrics
+        d = report.get("pointsNearVerticalMetrics")
+        if d:
+            self.drawPointsNearVericalMetrics(d, scale)
         # implied S curves
         d = report.get("complexCurves")
         if d:
@@ -293,6 +299,28 @@ class OutlineTutorObserver(object):
         overlappingPointsColor.set()
         path.fill()
 
+    def drawPointsNearVericalMetrics(self, verticalMetrics, scale):
+        path = NSBezierPath.bezierPath()
+        for verticalMetric, points in verticalMetrics.items():
+            xMin = None
+            xMax = None
+            for (x, y) in points:
+                path.moveToPoint_((x, y))
+                path.lineToPoint_((x, verticalMetric))
+                if xMin is None:
+                    xMin = x
+                elif xMin > x:
+                    xMin = x
+                if xMax is None:
+                    xMax = x
+                elif xMax < x:
+                    xMax = x
+            path.moveToPoint_((xMin, verticalMetric))
+            path.lineToPoint_((xMax, verticalMetric))
+        pointsNearVerticalMetricsColor.set()
+        path.setLineWidth_(2 * scale)
+        path.stroke()
+
     def drawTextReport(self, report, scale):
         text = []
         d = report.get("unicodeValue")
@@ -357,6 +385,7 @@ def getGlyphReport(font, glyph, testStates):
         unnecessaryPoints=testForUnnecessaryPoints,
         unnecessaryHandles=testForUnnecessaryHandles,
         overlappingPoints=testForOverlappingPoints,
+        pointsNearVerticalMetrics=testForPointsNearVerticalMetrics,
         complexCurves=testForComplexCurves,
     )
     report = {}
@@ -548,6 +577,30 @@ def testForStrayPoints(glyph):
             pt = (pt.x, pt.y)
             strayPoints[index] = pt
     return strayPoints
+
+def testForPointsNearVerticalMetrics(glyph):
+    """
+    Points shouldn't be just off a vertical metric.
+    """
+    font = glyph.getParent()
+    verticalMetrics = {
+        0 : set()
+    }
+    for attr in "descender xHeight capHeight ascender".split(" "):
+        value = getattr(font.info, attr)
+        verticalMetrics[value] = set()
+    for contour in glyph:
+        for segment in contour:
+            pt = _unwrapPoint(segment.onCurve)
+            y = pt[1]
+            for v in verticalMetrics:
+                d = abs(v - y)
+                if d != 0 and d <= 5:
+                    verticalMetrics[v].add(pt)
+    for verticalMetric, points in verticalMetrics.items():
+        if not points:
+            del verticalMetrics[verticalMetric]
+    return verticalMetrics
 
 # Utilities
 
