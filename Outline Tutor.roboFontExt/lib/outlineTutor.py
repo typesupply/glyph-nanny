@@ -13,7 +13,7 @@ X stray points
 X unnecessay handles
 X lines that are just off vertical or horizontal
 X implied s curve
-- crossed handles
+X crossed handles
 X overlapping points on the same contour
 X points just off vertical metric
 - duplicate contours
@@ -40,6 +40,11 @@ from mojo.events import addObserver, removeObserver
 # Colors
 # ------
 
+# Informative: Blue
+# Insert Something: Green
+# Remove Something: Red
+# Review Something: Yellow-Ornage
+
 missingExtremaColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 1, 0, 0.75)
 openContourColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 0, 0, 0.5)
 strayPointColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
@@ -51,6 +56,7 @@ unnecessaryHandlesColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0,
 overlappingPointsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 pointsNearVerticalMetricsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
 straightLineColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
+crossedHandlesColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
 
 # -------
 # Palette
@@ -61,7 +67,7 @@ class OutlineTutorControls(BaseWindowController):
     def __init__(self):
         self.keysToControls = {}
 
-        self.w = vanilla.FloatingWindow((185, 320))
+        self.w = vanilla.FloatingWindow((185, 335))
 
         self.top = 10
 
@@ -81,6 +87,7 @@ class OutlineTutorControls(BaseWindowController):
             dict(key="overlappingPoints", title="Overlapping Points"),
             dict(key="pointsNearVerticalMetrics", title="Points Near Vertical Metrics"),
             dict(key="complexCurves", title="Complex Curves"),
+            dict(key="crossedHandles", title="Crossed Handles"),
             dict(key="straightLines", title="Straight Lines"),
         ]
         self.buildSettingsGroup("outlineChecks", "Outline Checks", controls)
@@ -155,6 +162,10 @@ class OutlineTutorObserver(object):
         d = report.get("complexCurves")
         if d:
             self.drawComplexCurves(d, scale)
+        # crossed handles
+        d = report.get("crossedHandles")
+        if d:
+            self.drawCrossedHandles(d, scale)
         # straight lines
         d = report.get("straightLines")
         if d:
@@ -257,6 +268,30 @@ class OutlineTutorObserver(object):
                 mid = splitCubicAtT(pt0, pt1, pt2, pt3, 0.5)[0][-1]
                 drawString(mid, "Complex Path", 10, scale, impliedSCurveColor, backgroundColor=NSColor.whiteColor())
 
+    def drawCrossedHandles(self, contours, scale):
+        d = 10 * scale
+        h = d / 2.0
+        crossedHandlesColor.set()
+        for contourIndex, segments in contours.items():
+            for segment in segments:
+                pt1, pt2, pt3, pt4 = segment["points"]
+                pt5 = segment["intersection"]
+                path1 = NSBezierPath.bezierPath()
+                path2 = NSBezierPath.bezierPath()
+                path1.moveToPoint_(pt1)
+                path1.lineToPoint_(pt2)
+                path1.moveToPoint_(pt3)
+                path1.lineToPoint_(pt4)
+                x, y = pt5
+                r = ((x - h, y - h), (d, d))
+                path2.appendBezierPathWithOvalInRect_(r)
+                path1.setLineDash_count_phase_([0, 6 * scale], 2, 0.0)
+                path1.setLineWidth_(3 * scale)
+                path1.setLineCapStyle_(NSRoundLineCapStyle)
+                path1.stroke()
+                path2.fill()
+                drawString((x, y - (12 * scale)), "Crossed Handles", 10, scale, crossedHandlesColor, backgroundColor=NSColor.whiteColor())
+
     def drawStraightLines(self, contours, scale):
         straightLineColor.set()
         for contourIndex, segments in contours.items():
@@ -349,8 +384,12 @@ class OutlineTutorObserver(object):
 
     def drawTextReport(self, report, scale):
         text = []
-        text += report.get("unicodeValue", [])
-        text += report.get("contourCount")
+        r = report.get("unicodeValue")
+        if r:
+            text += r
+        r = report.get("contourCount")
+        if r:
+            text += r
         if text:
             text = "\n".join(text)
             x = 50
@@ -410,6 +449,7 @@ def getGlyphReport(font, glyph, testStates):
         overlappingPoints=testForOverlappingPoints,
         pointsNearVerticalMetrics=testForPointsNearVerticalMetrics,
         complexCurves=testForComplexCurves,
+        crossedHandles=testForCrossedHandles,
         straightLines=testForStraightLines,
     )
     report = {}
@@ -531,6 +571,60 @@ def testForComplexCurves(glyph):
                     impliedS[index].append((prev, pt1, pt2, pt3))
             prev = _unwrapPoint(segment.onCurve)
     return impliedS
+
+def testForCrossedHandles(glyph):
+    """
+    Handles shouldn't intersect.
+    """
+    crossedHandles = {}
+    for index, contour in enumerate(glyph):
+        pt0 = _unwrapPoint(contour[-1].onCurve)
+        for segment in contour:
+            pt3 = _unwrapPoint(segment.onCurve)
+            if segment.type == "curve":
+                pt1, pt2 = [_unwrapPoint(p) for p in segment.offCurve]
+                # direct intersection
+                direct = _intersectLines((pt0, pt1), (pt2, pt3))
+                if direct:
+                    if index not in crossedHandles:
+                        crossedHandles[index] = []
+                    crossedHandles[index].append(dict(points=(pt0, pt1, pt2, pt3), intersection=direct))
+                # indirect intersection
+                else:
+                    while 1:
+                        # bcp1 = ray, bcp2 = segment
+                        angle = _calcAngle(pt0, pt1)
+                        if angle in (0, 180.0):
+                            t1 = (pt0[0] + 1000, pt0[1])
+                            t2 = (pt0[0] - 1000, pt0[1])
+                        else:
+                            yOffset = _getAngleOffset(angle, 1000)
+                            t1 = (pt0[0] + 1000, pt0[1] + yOffset)
+                            t2 = (pt0[0] - 1000, pt0[1] - yOffset)
+                        indirect = _intersectLines((t1, t2), (pt2, pt3))
+                        if indirect:
+                            if index not in crossedHandles:
+                                crossedHandles[index] = []
+                            crossedHandles[index].append(dict(points=(pt0, indirect, pt2, pt3), intersection=indirect))
+                            break
+                        # bcp1 = segment, bcp2 = ray
+                        angle = _calcAngle(pt3, pt2)
+                        if angle in (90.0, 270.0):
+                            t1 = (pt3[0], pt3[1] + 1000)
+                            t2 = (pt3[0], pt3[1] - 1000)
+                        else:
+                            yOffset = _getAngleOffset(angle, 1000)
+                            t1 = (pt3[0] + 1000, pt3[1] + yOffset)
+                            t2 = (pt3[0] - 1000, pt3[1] - yOffset)
+                        indirect = _intersectLines((t1, t2), (pt0, pt1))
+                        if indirect:
+                            if index not in crossedHandles:
+                                crossedHandles[index] = []
+                            crossedHandles[index].append(dict(points=(pt0, pt1, indirect, pt3), intersection=indirect))
+                            break
+                        break
+            pt0 = pt3
+    return crossedHandles
 
 def testForUnnecessaryPoints(glyph):
     """
@@ -686,13 +780,29 @@ def _intersectLines((a1, a2), (b1, b2)):
         return None
 
 def _calcAngle(point1, point2, r=None):
-    width = point2.x - point1.x
-    height = point2.y - point1.y
+    if not isinstance(point1, tuple):
+        point1 = _unwrapPoint(point1)
+    if not isinstance(point2, tuple):
+        point2 = _unwrapPoint(point2)
+    width = point2[0] - point1[0]
+    height = point2[1] - point1[1]
     angle = round(math.atan2(height, width) * 180 / math.pi, 3)
     if r is not None:
         angle = round(angle, r)
     return angle
 
+def _getAngleOffset(angle, distance):
+    A = 90
+    B = angle
+    C = 180 - (A + B)
+    if C == 0:
+        return 0
+    c = distance
+    A = math.radians(A)
+    B = math.radians(B)
+    C = math.radians(C)
+    b = (c * math.sin(B)) / math.sin(C)
+    return b
 
 if __name__ == "__main__":
     OutlineTutorControls()
