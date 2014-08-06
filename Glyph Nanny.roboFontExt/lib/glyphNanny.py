@@ -1,32 +1,3 @@
-"""
-Font
-----
-X duplicate unicode
-
-Glyph
------
-X points at extreme
-X unnecessary points
-X contours overlapping in bad ways / too many contours
-X open paths
-X stray points
-X unnecessay handles
-X lines that are just off vertical or horizontal
-X implied s curve
-X crossed handles
-X overlapping points on the same contour
-X points just off vertical metric
-X duplicate contours
-X test unicode against agl
-- bcps that are not collinear
-
-X the colors need to vary and perhaps the interface
-  needs some sort or color indication. or, more text
-  needs to be drawn.
-X finish the interface and incorporate it into the observer
-- use a representation factory for the report
-"""
-
 import math
 from fontTools.misc.bezierTools import splitCubicAtT
 from fontTools.agl import AGL2UV
@@ -38,6 +9,8 @@ from defconAppKit.windows.baseWindow import BaseWindowController
 from mojo.roboFont import CurrentGlyph
 from mojo.UI import UpdateCurrentGlyphView
 from mojo.events import addObserver, removeObserver
+
+DEBUG = False
 
 # ------
 # Colors
@@ -148,13 +121,17 @@ class GlyphNannyControls(BaseWindowController):
 class GlyphNannyObserver(object):
 
     def setTestStates(self, testStates):
-        self.testStates = testStates
+        # pack into a tuple for representation storage
+        t = []
+        for k, v in sorted(testStates.items()):
+            t.append((k, v))
+        self.testStates = tuple(t)
 
     def drawComments(self, info):
         glyph = info["glyph"]
         font = glyph.getParent()
         scale = info["scale"]
-        report = getGlyphReport(font, glyph, self.testStates)
+        report = glyph.getRepresentation("com.typesupply.GlyphNanny.Report", testStates=self.testStates)
         # small contours
         d = report.get("smallContours")
         if d:
@@ -462,7 +439,25 @@ def calcMid(pt1, pt2):
 # Reporter
 # --------
 
+def GlyphNannyReportFactory(glyph, font, testStates=None):
+    """
+    Representation factory for retrieving a report.
+    """
+    glyph = RGlyph(glyph)
+    font = glyph.getParent()
+    d = {}
+    for k, v in testStates:
+        d[k] = v
+    return getGlyphReport(font, glyph, d)
+
 def getGlyphReport(font, glyph, testStates):
+    """
+    Get a report about the glyph.
+
+    testStates should be a dict of the test names
+    and a boolean indicating if they should be
+    executed or not.
+    """
     tests = dict(
         unicodeValue=testUnicodeValue,
         contourCount=testContourCount,
@@ -851,5 +846,23 @@ def _getAngleOffset(angle, distance):
     b = (c * math.sin(B)) / math.sin(C)
     return b
 
+# -------------------------------------------
+# Representation Factory Registration Hacking
+# -------------------------------------------
+
+def _registerFactory():
+    # always register if debugging
+    # otherwise only register if it isn't registered
+    from defcon import addRepresentationFactory, removeRepresentationFactory
+    from defcon.objects import glyph as _xxxHackGlyph
+    if DEBUG:
+        if "com.typesupply.GlyphNanny.Report" in _xxxHackGlyph._representationFactories:
+            removeRepresentationFactory("com.typesupply.GlyphNanny.Report")
+        addRepresentationFactory("com.typesupply.GlyphNanny.Report", GlyphNannyReportFactory)
+    else:
+        if "com.typesupply.GlyphNanny.Report" not in _xxxHackGlyph._representationFactories:
+            addRepresentationFactory("com.typesupply.GlyphNanny.Report", GlyphNannyReportFactory)
+
 if __name__ == "__main__":
+    _registerFactory()
     GlyphNannyControls()
