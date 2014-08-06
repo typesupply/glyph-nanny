@@ -11,7 +11,7 @@ X contours overlapping in bad ways / too many contours
 X open paths
 X stray points
 X unnecessay handles
-- lines that are just off vertical or horizontal
+X lines that are just off vertical or horizontal
 X implied s curve
 - crossed handles
 X overlapping points on the same contour
@@ -50,6 +50,7 @@ unnecessaryPointsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 
 unnecessaryHandlesColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 overlappingPointsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 pointsNearVerticalMetricsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
+straightLineColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
 
 # -------
 # Palette
@@ -60,7 +61,7 @@ class OutlineTutorControls(BaseWindowController):
     def __init__(self):
         self.keysToControls = {}
 
-        self.w = vanilla.FloatingWindow((185, 300))
+        self.w = vanilla.FloatingWindow((185, 320))
 
         self.top = 10
 
@@ -80,6 +81,7 @@ class OutlineTutorControls(BaseWindowController):
             dict(key="overlappingPoints", title="Overlapping Points"),
             dict(key="pointsNearVerticalMetrics", title="Points Near Vertical Metrics"),
             dict(key="complexCurves", title="Complex Curves"),
+            dict(key="straightLines", title="Straight Lines"),
         ]
         self.buildSettingsGroup("outlineChecks", "Outline Checks", controls)
 
@@ -153,6 +155,10 @@ class OutlineTutorObserver(object):
         d = report.get("complexCurves")
         if d:
             self.drawComplexCurves(d, scale)
+        # straight lines
+        d = report.get("straightLines")
+        if d:
+            self.drawStraightLines(d, scale)
         # open contours
         d = report.get("openContours")
         if d:
@@ -250,6 +256,25 @@ class OutlineTutorObserver(object):
                 path.stroke()
                 mid = splitCubicAtT(pt0, pt1, pt2, pt3, 0.5)[0][-1]
                 drawString(mid, "Complex Path", 10, scale, impliedSCurveColor, backgroundColor=NSColor.whiteColor())
+
+    def drawStraightLines(self, contours, scale):
+        straightLineColor.set()
+        for contourIndex, segments in contours.items():
+            for segment in segments:
+                xs = []
+                ys = []
+                for (x, y) in segment:
+                    xs.append(x)
+                    ys.append(y)
+                xMin = min(xs)
+                xMax = max(xs)
+                yMin = min(ys)
+                yMax = max(ys)
+                w = xMax - xMin
+                h = yMax - yMin
+                r = ((xMin, yMin), (w, h))
+                r = NSInsetRect(r, -2 * scale, -2 * scale)
+                NSRectFillUsingOperation(r, NSCompositeSourceOver)
 
     def drawUnnecessaryPoints(self, contours, scale):
         path = NSBezierPath.bezierPath()
@@ -385,6 +410,7 @@ def getGlyphReport(font, glyph, testStates):
         overlappingPoints=testForOverlappingPoints,
         pointsNearVerticalMetrics=testForPointsNearVerticalMetrics,
         complexCurves=testForComplexCurves,
+        straightLines=testForStraightLines,
     )
     report = {}
     for key, test in tests.items():
@@ -569,6 +595,30 @@ def testForUnnecessaryHandles(glyph):
                     unnecessaryHandles[index].append((_unwrapPoint(pt1), _unwrapPoint(pt2)))
             prevPoint = segment.onCurve
     return unnecessaryHandles
+
+def testForStraightLines(glyph):
+    """
+    Lines shouldn't be just shy of vertical or horizontal.
+    """
+    straightLines = {}
+    for index, contour in enumerate(glyph):
+        prev = _unwrapPoint(contour[-1].onCurve)
+        for segment in contour:
+            point = _unwrapPoint(segment.onCurve)
+            if segment.type == "line":
+                x = abs(prev[0] - point[0])
+                y = abs(prev[1] - point[1])
+                if x > 0 and x <= 5:
+                    if index not in straightLines:
+                        straightLines[index] = set()
+                    straightLines[index].add((prev, point))
+                if y > 0 and y <= 5:
+                    if index not in straightLines:
+                        straightLines[index] = set()
+                    straightLines[index].add((prev, point))
+            prev = point
+    return straightLines
+
 
 # Points
 
