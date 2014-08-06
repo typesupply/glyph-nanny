@@ -15,8 +15,10 @@ X unnecessay handles
 X implied s curve
 - crossed handles
 - overlapping points on the same contour
+- points just off vertical metric
+- duplicate contours
 
-- the colors need to vary and perhaps the interface
+X the colors need to vary and perhaps the interface
   needs some sort or color indication. or, more text
   needs to be drawn.
 - finish the interface and incorporate it into the observer
@@ -24,6 +26,7 @@ X implied s curve
 """
 
 import math
+from fontTools.misc.bezierTools import splitCubicAtT
 from AppKit import *
 import vanilla
 from defconAppKit.windows.baseWindow import BaseWindowController
@@ -34,12 +37,12 @@ from mojo import drawingTools
 # Colors
 # ------
 
-missingExtremaColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
-openContourColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
+missingExtremaColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 1, 0, 0.75)
+openContourColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 0, 0, 0.5)
 strayPointColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
-smallContourColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
-textReportColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
-impliedSCurveColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
+smallContourColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 1, 0, 0.7)
+textReportColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 0, 0.7, 0.3)
+impliedSCurveColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.8, 0, 0.85)
 unnecessaryPointsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 unnecessaryHandlesColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 
@@ -68,10 +71,10 @@ class OutlineTutorControls(BaseWindowController):
 
     def startObserver(self):
         self.observer = OutlineTutorObserver()
-        addObserver(self.observer, "drawComments", "draw")
+        addObserver(self.observer, "drawComments", "drawBackground")
 
     def stopObserver(self):
-        removeObserver(self.observer, "draw")
+        removeObserver(self.observer, "drawBackground")
         self.observer = None
 
 
@@ -90,6 +93,10 @@ class OutlineTutorObserver(object):
         d = report.get("tooSmallContours")
         if d:
             self.drawSmallContours(d, scale)
+        # implied S curves
+        d = report.get("impliedSCurves")
+        if d:
+            self.drawImpliedSCurves(d, scale)
         # open contours
         d = report.get("openContours")
         if d:
@@ -102,10 +109,6 @@ class OutlineTutorObserver(object):
         d = report.get("strayPoints")
         if d:
             self.drawStrayPoints(d, scale)
-        # implied S curves
-        d = report.get("impliedSCurves")
-        if d:
-            self.drawImpliedSCurves(d, scale)
         # unnecessary points
         d = report.get("unnecessaryPoints")
         if d:
@@ -124,69 +127,103 @@ class OutlineTutorObserver(object):
             w = xMax - xMin
             h = yMax - yMin
             r = ((xMin, yMin), (w, h))
+            r = NSInsetRect(r, -5 * scale, -5 * scale)
             NSRectFillUsingOperation(r, NSCompositeSourceOver)
             x = xMin + (w / 2)
             y = yMin - (10 * scale)
             drawString((x, y), "Tiny Contour", 10, scale, smallContourColor)
 
     def drawOpenContours(self, contours, scale):
+        openContourColor.set()
         for contourIndex, points in contours.items():
             start, end = points
             mid = calcMid(start, end)
-            drawString(mid, "Open Contour", 10, scale, openContourColor)
+            path = NSBezierPath.bezierPath()
+            path.moveToPoint_(start)
+            path.lineToPoint_(end)
+            path.setLineWidth_(scale)
+            path.setLineDash_count_phase_([4], 1, 0.0)
+            path.stroke()
+            drawString(mid, "Open Contour", 10, scale, openContourColor, backgroundColor=NSColor.whiteColor())
 
     def drawMissingExtrema(self, contours, scale):
         path = NSBezierPath.bezierPath()
-        d = 10 * scale
+        d = 16 * scale
         h = d / 2.0
+        o = 3 * scale
         for contourIndex, points in contours.items():
             for (x, y) in points:
                 r = ((x - h, y - h), (d, d))
                 path.appendBezierPathWithOvalInRect_(r)
+                path.moveToPoint_((x - h + o, y))
+                path.lineToPoint_((x + h - o, y))
+                path.moveToPoint_((x, y - h + o))
+                path.lineToPoint_((x, y + h - o))
+                drawString((x, y - (16 * scale)), "Insert Point", 10, scale, missingExtremaColor)
         missingExtremaColor.set()
-        path.fill()
+        path.setLineWidth_(scale)
+        path.stroke()
 
     def drawStrayPoints(self, contours, scale):
         path = NSBezierPath.bezierPath()
-        for contourIndex, pt in contours.items():
-            drawDeleteMark(pt, scale, path)
+        d = 20 * scale
+        h = d / 2.0
+        for contourIndex, (x, y) in contours.items():
+            r = ((x - h, y - h), (d, d))
+            path.appendBezierPathWithOvalInRect_(r)
+            drawString((x, y - d), "Stray Point", 10, scale, strayPointColor)
         strayPointColor.set()
         path.setLineWidth_(scale)
         path.stroke()
 
     def drawImpliedSCurves(self, contours, scale):
-        path = NSBezierPath.bezierPath()
+        impliedSCurveColor.set()
         for contourIndex, segments in contours.items():
             for segment in segments:
                 pt0, pt1, pt2, pt3 = segment
+                path = NSBezierPath.bezierPath()
                 path.moveToPoint_(pt0)
                 path.curveToPoint_controlPoint1_controlPoint2_(pt3, pt1, pt2)
-        impliedSCurveColor.set()
-        path.setLineWidth_(3 * scale)
-        path.stroke()
+                path.setLineDash_count_phase_([0, 10 * scale], 2, 0.0)
+                path.setLineWidth_(5 * scale)
+                path.setLineCapStyle_(NSRoundLineCapStyle)
+                path.stroke()
+                mid = splitCubicAtT(pt0, pt1, pt2, pt3, 0.5)[0][-1]
+                drawString(mid, "Complex Path", 10, scale, impliedSCurveColor, backgroundColor=NSColor.whiteColor())
 
     def drawUnnecessaryPoints(self, contours, scale):
         path = NSBezierPath.bezierPath()
         for contourIndex, points in contours.items():
             for pt in points:
                 drawDeleteMark(pt, scale, path)
+                x, y = pt
+                drawString((x, y - (10 * scale)), "Unnecessary Point", 10, scale, unnecessaryPointsColor)
         unnecessaryPointsColor.set()
-        path.setLineWidth_(scale)
+        path.setLineWidth_(2 * scale)
         path.stroke()
 
     def drawUnnecessaryHandles(self, contours, scale):
-        path1 = NSBezierPath.bezierPath()
-        path2 = NSBezierPath.bezierPath()
-        for contourIndex, points in contours.items():
-            for bcp, anchor in points:
-                drawDeleteMark(bcp, scale, path1)
-                path2.moveToPoint_(bcp)
-                path2.lineToPoint_(anchor)
         unnecessaryHandlesColor.set()
-        path1.setLineWidth_(scale)
-        path1.stroke()
-        path2.setLineWidth_(3 * scale)
-        path2.stroke()
+        d = 10 * scale
+        h = d / 2.0
+        for contourIndex, points in contours.items():
+            for bcp1, bcp2 in points:
+                # line
+                path1 = NSBezierPath.bezierPath()
+                path1.moveToPoint_(bcp1)
+                path1.lineToPoint_(bcp2)
+                path1.setLineWidth_(3 * scale)
+                path1.stroke()
+                # dots
+                path2 = NSBezierPath.bezierPath()
+                for (x, y) in (bcp1, bcp2):
+                    r = ((x - h, y - h), (d, d))
+                    path2.appendBezierPathWithOvalInRect_(r)
+                path2.setLineWidth_(scale)
+                path2.stroke()
+                # text
+                mid = calcMid(bcp1, bcp2)
+                drawString(mid, "Unnecessary Handles", 10, scale, unnecessaryHandlesColor, backgroundColor=NSColor.whiteColor())
 
     def drawTextReport(self, report, scale):
         text = []
@@ -197,14 +234,14 @@ class OutlineTutorObserver(object):
         if d:
             text.append("This glyph has a unusally high number of overlapping contours.")
         text = "\n".join(text)
-        x = 0
-        y = 0
+        x = 50
+        y = 50
         drawString((x, y), text, 16, scale, textReportColor, alignment="left")
 
 # Utilities
 
 def drawDeleteMark(pt, scale, path):
-    h = 10 * scale
+    h = 6 * scale
     x, y = pt
     x1 = x - h
     x2 = x + h
@@ -215,11 +252,13 @@ def drawDeleteMark(pt, scale, path):
     path.moveToPoint_((x1, y2))
     path.lineToPoint_((x2, y1))
 
-def drawString(pt, text, size, scale, color, alignment="center"):
+def drawString(pt, text, size, scale, color, alignment="center", backgroundColor=None):
     attributes = attributes = {
         NSFontAttributeName : NSFont.fontWithName_size_("Lucida Grande", size * scale),
         NSForegroundColorAttributeName : color
     }
+    if backgroundColor is not None:
+        attributes[NSBackgroundColorAttributeName] = backgroundColor
     text = NSAttributedString.alloc().initWithString_attributes_(text, attributes)
     x, y = pt
     if alignment == "center":
@@ -396,18 +435,10 @@ def testForUnnecessaryHandles(glyph):
                     bcpAngle1 = _calcAngle(pt0, pt1, 0)
                 if (pt2.x, pt2.y) != (pt3.x, pt3.y):
                     bcpAngle2 = _calcAngle(pt2, pt3, 0)
-                bcp1 = bcp2 = False
-                if bcpAngle1 == lineAngle:
-                    bcp1 = True
-                if bcpAngle2 == lineAngle:
-                    bcp2 = True
-                if bcp1 and bcp2:
+                if bcpAngle1 == lineAngle and bcpAngle2 == lineAngle:
                     if index not in unnecessaryHandles:
                         unnecessaryHandles[index] = []
-                    if bcp1:
-                        unnecessaryHandles[index].append(((pt1.x, pt1.y), (pt0.x, pt0.y)))
-                    if bcp2:
-                        unnecessaryHandles[index].append(((pt2.x, pt2.y), (pt3.x, pt3.y)))
+                    unnecessaryHandles[index].append((_unwrapPoint(pt1), _unwrapPoint(pt2)))
             prevPoint = segment.onCurve
     return unnecessaryHandles
 
