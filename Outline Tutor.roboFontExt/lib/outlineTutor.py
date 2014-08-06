@@ -10,10 +10,16 @@ X unnecessary points
 X contours overlapping in bad ways / too many contours
 X open paths
 X stray points
-- unnecessay handles
+X unnecessay handles
 - lines that are just off vertical or horizontal
 X implied s curve
-- odd contour directions
+- crossed handles
+- overlapping points on the same contour
+
+- the colors need to vary and perhaps the interface
+  needs some sort or color indication. or, more text
+  needs to be drawn.
+- finish the interface and incorporate it into the observer
 """
 
 import math
@@ -34,6 +40,7 @@ smallContourColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.
 textReportColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 impliedSCurveColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 unnecessaryPointsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
+unnecessaryHandlesColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 
 # -------
 # Palette
@@ -102,6 +109,10 @@ class OutlineTutorObserver(object):
         d = report.get("unnecessaryPoints")
         if d:
             self.drawUnnecessaryPoints(d, scale)
+        # unnecessary handles
+        d = report.get("unnecessaryHandles")
+        if d:
+            self.drawUnnecessaryHandles(d, scale)
         # text report
         self.drawTextReport(report, scale)
 
@@ -136,17 +147,8 @@ class OutlineTutorObserver(object):
 
     def drawStrayPoints(self, contours, scale):
         path = NSBezierPath.bezierPath()
-        h = 10 * scale
         for contourIndex, pt in contours.items():
-            x, y = pt
-            x1 = x - h
-            x2 = x + h
-            y1 = y - h
-            y2 = y + h
-            path.moveToPoint_((x1, y1))
-            path.lineToPoint_((x2, y2))
-            path.moveToPoint_((x1, y2))
-            path.lineToPoint_((x2, y1))
+            drawDeleteMark(pt, scale, path)
         strayPointColor.set()
         path.setLineWidth_(scale)
         path.stroke()
@@ -164,21 +166,26 @@ class OutlineTutorObserver(object):
 
     def drawUnnecessaryPoints(self, contours, scale):
         path = NSBezierPath.bezierPath()
-        h = 10 * scale
         for contourIndex, points in contours.items():
             for pt in points:
-                x, y = pt
-                x1 = x - h
-                x2 = x + h
-                y1 = y - h
-                y2 = y + h
-                path.moveToPoint_((x1, y1))
-                path.lineToPoint_((x2, y2))
-                path.moveToPoint_((x1, y2))
-                path.lineToPoint_((x2, y1))
+                drawDeleteMark(pt, scale, path)
         unnecessaryPointsColor.set()
         path.setLineWidth_(scale)
         path.stroke()
+
+    def drawUnnecessaryHandles(self, contours, scale):
+        path1 = NSBezierPath.bezierPath()
+        path2 = NSBezierPath.bezierPath()
+        for contourIndex, points in contours.items():
+            for bcp, anchor in points:
+                drawDeleteMark(bcp, scale, path1)
+                path2.moveToPoint_(bcp)
+                path2.lineToPoint_(anchor)
+        unnecessaryHandlesColor.set()
+        path1.setLineWidth_(scale)
+        path1.stroke()
+        path2.setLineWidth_(3 * scale)
+        path2.stroke()
 
     def drawTextReport(self, report, scale):
         text = []
@@ -194,6 +201,18 @@ class OutlineTutorObserver(object):
         drawString((x, y), text, 16, scale, textReportColor, alignment="left")
 
 # Utilities
+
+def drawDeleteMark(pt, scale, path):
+    h = 10 * scale
+    x, y = pt
+    x1 = x - h
+    x2 = x + h
+    y1 = y - h
+    y2 = y + h
+    path.moveToPoint_((x1, y1))
+    path.lineToPoint_((x2, y2))
+    path.moveToPoint_((x1, y2))
+    path.lineToPoint_((x2, y1))
 
 def drawString(pt, text, size, scale, color, alignment="center"):
     attributes = attributes = {
@@ -227,7 +246,7 @@ def getGlyphReport(font, glyph):
         openContours=testForOpenContours(glyph),
         needPointsAtExtrema=testForPointsAtExtrema(glyph),
         unnecessaryPoints=testForUnnecessaryPoints(glyph),
-        #unnecessaryHandles=testForUnnecessaryHandles(glyph),
+        unnecessaryHandles=testForUnnecessaryHandles(glyph),
         impliedSCurves=testForImpliedSCurve(glyph),
         strayPoints=testForStrayPoints(glyph)
     )
@@ -385,10 +404,12 @@ def testForUnnecessaryPoints(glyph):
                         unnecessaryPoints[index].append(unwrapPoint(segment.onCurve))
     return unnecessaryPoints
 
-def _calcAngle(point1, point2):
+def _calcAngle(point1, point2, r=None):
     width = point2.x - point1.x
     height = point2.y - point1.y
     angle = round(math.atan2(height, width) * 180 / math.pi, 3)
+    if r is not None:
+        angle = round(angle, r)
     return angle
 
 # Segments
@@ -396,39 +417,35 @@ def _calcAngle(point1, point2):
 def testForUnnecessaryHandles(glyph):
     """
     Handles shouldn't be used if they aren't doing anything.
-
-    XXX this doesn't work very well.
     """
     unnecessaryHandles = {}
     for index, contour in enumerate(glyph):
-        prev = contour[-1].onCurve
+        prevPoint = contour[-1].onCurve
         for segment in contour:
             if segment.type == "curve":
-                points = _getFlattenedSegment(prev, segment[0], segment[1], segment[2])
-                test = _getFlattenedSegment(prev, None, None, segment[2])
-                if set(points) == set(test):
+                pt0 = prevPoint
+                pt1, pt2 = segment.offCurve
+                pt3 = segment.onCurve
+                lineAngle = _calcAngle(pt0, pt3, 0)
+                bcpAngle1 = bcpAngle2 = None
+                if (pt0.x, pt0.y) != (pt1.x, pt1.y):
+                    bcpAngle1 = _calcAngle(pt0, pt1, 0)
+                if (pt2.x, pt2.y) != (pt3.x, pt3.y):
+                    bcpAngle2 = _calcAngle(pt2, pt3, 0)
+                bcp1 = bcp2 = False
+                if bcpAngle1 == lineAngle:
+                    bcp1 = True
+                if bcpAngle2 == lineAngle:
+                    bcp2 = True
+                if bcp1 or bcp2:
                     if index not in unnecessaryHandles:
                         unnecessaryHandles[index] = []
-                    unnecessaryHandles[index].append(((prev.x, prev.y), (segment[-1].x, segment[-1].y)))
-            prev = segment.onCurve
+                    if bcp1:
+                        unnecessaryHandles[index].append(((pt1.x, pt1.y), (pt0.x, pt0.y)))
+                    if bcp2:
+                        unnecessaryHandles[index].append(((pt2.x, pt2.y), (pt3.x, pt3.y)))
+            prevPoint = segment.onCurve
     return unnecessaryHandles
-
-def _getFlattenedSegment(pt1, pt2, pt3, pt4):
-    from defcon import Glyph
-    from robofab.pens.filterPen import FlattenPen
-    glyph = Glyph()
-    glyphPen = glyph.getPen()
-    pen = FlattenPen(glyphPen, approximateSegmentLength=2, segmentLines=True)
-    pen.moveTo((pt1.x, pt1.y))
-    if pt2 is None:
-        pen.lineTo((pt4.x, pt4.y))
-    else:
-        pen.curveTo((pt2.x, pt2.y), (pt3.x, pt3.y), (pt4.x, pt4.y))
-    pen.endPath()
-    points = []
-    for point in glyph[0]:
-        points.append((point.x, point.y))
-    return points
 
 # Points
 
