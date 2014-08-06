@@ -71,7 +71,7 @@ class OutlineTutorControls(BaseWindowController):
     def __init__(self):
         self.keysToControls = {}
 
-        self.w = vanilla.FloatingWindow((185, 335))
+        self.w = vanilla.FloatingWindow((185, 355))
 
         self.top = 10
 
@@ -85,6 +85,7 @@ class OutlineTutorControls(BaseWindowController):
             dict(key="strayPoints", title="Stray Points"),
             dict(key="smallContours", title="Small Contours"),
             dict(key="openContours", title="Open Contours"),
+            dict(key="duplicateContours", title="Duplicate Contours"),
             dict(key="extremePoints", title="Extreme Points"),
             dict(key="unnecessaryPoints", title="Unnecessary Points"),
             dict(key="unnecessaryHandles", title="Unnecessary Handles"),
