@@ -66,12 +66,12 @@ duplicateContourColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0
 # Palette
 # -------
 
-class OutlineTutorControls(BaseWindowController):
+class DrawingNannyControls(BaseWindowController):
 
     def __init__(self):
         self.keysToControls = {}
 
-        self.w = vanilla.FloatingWindow((185, 355))
+        self.w = vanilla.FloatingWindow((185, 355), "Drawing Nanny")
 
         self.top = 10
 
@@ -108,7 +108,7 @@ class OutlineTutorControls(BaseWindowController):
         self.stopObserver()
 
     def startObserver(self):
-        self.observer = OutlineTutorObserver()
+        self.observer = DrawingNannyObserver()
         addObserver(self.observer, "drawComments", "drawBackground")
         addObserver(self.observer, "drawComments", "drawInactive")
 
@@ -145,7 +145,7 @@ class OutlineTutorControls(BaseWindowController):
 # Drawing Observer
 # ----------------
 
-class OutlineTutorObserver(object):
+class DrawingNannyObserver(object):
 
     def setTestStates(self, testStates):
         self.testStates = testStates
@@ -852,4 +852,4 @@ def _getAngleOffset(angle, distance):
     return b
 
 if __name__ == "__main__":
-    OutlineTutorControls()
+    DrawingNannyControls()
