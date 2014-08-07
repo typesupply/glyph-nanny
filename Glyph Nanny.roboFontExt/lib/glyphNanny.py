@@ -34,6 +34,7 @@ pointsNearVerticalMetricsColor = NSColor.colorWithCalibratedRed_green_blue_alpha
 straightLineColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
 crossedHandlesColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
 duplicateContourColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
+unsmoothSmoothsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
 
 # -------
 # Palette
@@ -44,7 +45,7 @@ class GlyphNannyControls(BaseWindowController):
     def __init__(self):
         self.keysToControls = {}
 
-        self.w = vanilla.FloatingWindow((185, 355), "Glyph Nanny")
+        self.w = vanilla.FloatingWindow((185, 375), "Glyph Nanny")
 
         self.top = 10
 
@@ -67,6 +68,7 @@ class GlyphNannyControls(BaseWindowController):
             dict(key="complexCurves", title="Complex Curves"),
             dict(key="crossedHandles", title="Crossed Handles"),
             dict(key="straightLines", title="Straight Lines"),
+            dict(key="unsmoothSmooths", title="Unsmooth Smooths"),
         ]
         self.buildSettingsGroup("outlineChecks", "Outline Checks", controls)
 
@@ -148,6 +150,10 @@ class GlyphNannyObserver(object):
         d = report.get("crossedHandles")
         if d:
             self.drawCrossedHandles(d, scale)
+        # unsmooth smooths
+        d = report.get("unsmoothSmooths")
+        if d:
+            self.drawUnsmoothSmooths(d, scale)
         # straight lines
         d = report.get("straightLines")
         if d:
@@ -385,6 +391,18 @@ class GlyphNannyObserver(object):
         path.setLineWidth_(4 * scale)
         path.stroke()
 
+    def drawUnsmoothSmooths(self, contours, scale):
+        unsmoothSmoothsColor.set()
+        for contourIndex, points in contours.items():
+            path = NSBezierPath.bezierPath()
+            for pt1, pt2, pt3 in points:
+                path.moveToPoint_(pt1)
+                path.lineToPoint_(pt3)
+            path.setLineWidth_(2 * scale)
+            path.stroke()
+            x, y = pt2
+            drawString((x, y - (10 * scale)), "Unsmooth Smooth", 10, scale, unsmoothSmoothsColor, backgroundColor=NSColor.whiteColor())
+
     def drawTextReport(self, report, scale):
         text = []
         r = report.get("unicodeValue")
@@ -473,6 +491,7 @@ def getGlyphReport(font, glyph, testStates):
         complexCurves=testForComplexCurves,
         crossedHandles=testForCrossedHandles,
         straightLines=testForStraightLines,
+        unsmoothSmooths=testUnsmoothSmooths,
     )
     report = {}
     for key, test in tests.items():
@@ -755,6 +774,27 @@ def testForStraightLines(glyph):
             prev = point
     return straightLines
 
+def testUnsmoothSmooths(glyph):
+    """
+    Smooth segments should have bcps in the right places.
+    """
+    unsmoothSmooths = {}
+    for index, contour in enumerate(glyph):
+        prev = contour[-1]
+        for segment in contour:
+            if prev.type == "curve" and segment.type == "curve":
+                if prev.smooth:
+                    angle1 = _calcAngle(prev.offCurve[1], prev.onCurve, r=0)
+                    angle2 = _calcAngle(prev.onCurve, segment.offCurve[0], r=0)
+                    if angle1 != angle2:
+                        if index not in unsmoothSmooths:
+                            unsmoothSmooths[index] = []
+                        pt1 = _unwrapPoint(prev.offCurve[1])
+                        pt2 = _unwrapPoint(prev.onCurve)
+                        pt3 = _unwrapPoint(segment.offCurve[0])
+                        unsmoothSmooths[index].append((pt1, pt2, pt3))
+            prev = segment
+    return unsmoothSmooths
 
 # Points
 
