@@ -7,6 +7,7 @@ from AppKit import *
 import vanilla
 from defconAppKit.windows.baseWindow import BaseWindowController
 from mojo.roboFont import CurrentGlyph
+from mojo.roboFont import version as roboFontVersion
 from mojo.UI import UpdateCurrentGlyphView
 from mojo.events import addObserver, removeObserver
 
@@ -133,7 +134,11 @@ class GlyphNannyObserver(object):
         glyph = info["glyph"]
         font = glyph.getParent()
         scale = info["scale"]
-        report = glyph.getRepresentation("com.typesupply.GlyphNanny.Report", testStates=self.testStates)
+        if roboFontVersion <= "1.5.1":
+            d = tupleToDict(self.testStates)
+            report = getGlyphReport(font, glyph, d)
+        else:
+            report = glyph.getRepresentation("com.typesupply.GlyphNanny.Report", testStates=self.testStates)
         # small contours
         d = report.get("smallContours")
         if d:
@@ -457,15 +462,19 @@ def calcMid(pt1, pt2):
 # Reporter
 # --------
 
+def tupleToDict(t):
+    d = {}
+    for k, v in t:
+        d[k] = v
+    return d
+
 def GlyphNannyReportFactory(glyph, font, testStates=None):
     """
     Representation factory for retrieving a report.
     """
     glyph = RGlyph(glyph)
     font = glyph.getParent()
-    d = {}
-    for k, v in testStates:
-        d[k] = v
+    d = tupleToDict(testStates)
     return getGlyphReport(font, glyph, d)
 
 def getGlyphReport(font, glyph, testStates):
@@ -905,5 +914,6 @@ def _registerFactory():
             addRepresentationFactory("com.typesupply.GlyphNanny.Report", GlyphNannyReportFactory)
 
 if __name__ == "__main__":
-    _registerFactory()
+    if roboFontVersion > "1.5.1":
+        _registerFactory()
     GlyphNannyControls()
