@@ -524,7 +524,8 @@ def testUnicodeValue(glyph):
             other = font[name]
             if other.unicode == uni:
                 duplicates.append(name)
-        report.append("The Unicode for this glyph is also used by: %s." % " ".join(duplicates))
+        if duplicates:
+            report.append("The Unicode for this glyph is also used by: %s." % " ".join(duplicates))
     return report
 
 # Glyph Construction
