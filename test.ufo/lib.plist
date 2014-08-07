@@ -780,6 +780,9 @@
 				<string>degree.old</string>
 				<string>won.old</string>
 				<string>.notdef</string>
+				<string>E.alt1</string>
+				<string>E.alt2</string>
+				<string>E.alt3</string>
 			</array>
 			<key>type</key>
 			<string>glyphList</string>
