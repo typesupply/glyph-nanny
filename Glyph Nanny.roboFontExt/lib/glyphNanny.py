@@ -1,3 +1,4 @@
+import re
 import math
 from fontTools.misc.bezierTools import splitCubicAtT
 from fontTools.agl import AGL2UV
@@ -132,6 +133,8 @@ class GlyphNannyObserver(object):
 
     def drawComments(self, info):
         glyph = info["glyph"]
+        if glyph is None:
+            return
         font = glyph.getParent()
         scale = info["scale"]
         if roboFontVersion <= "1.5.1":
@@ -512,6 +515,12 @@ def getGlyphReport(font, glyph, testStates):
 
 # Glyph Data
 
+uniNamePattern = re.compile(
+    "uni"
+    "([0-9A-Fa-f]{4})"
+    "$"
+)
+
 def testUnicodeValue(glyph):
     """
     A Unicode value should appear only once per font.
@@ -520,10 +529,18 @@ def testUnicodeValue(glyph):
     font = glyph.getParent()
     uni = glyph.unicode
     name = glyph.name
-    # test against AGL
-    expectedUni = AGL2UV.get(name)
-    if expectedUni != uni:
-        report.append("The Unicode value for this glyph may not be correct.")
+    # test for uniXXXX name
+    m = uniNamePattern.match(name)
+    if m is not None:
+        uniFromName = m.group(1)
+        uniFromName = int(uniFromName, 16)
+        if uni != uniFromName:
+            report.append("The Unicode value for this glyph does not match its name.")
+    # test against AGLFN
+    else:
+        expectedUni = AGL2UV.get(name)
+        if expectedUni != uni:
+            report.append("The Unicode value for this glyph may not be correct.")
     # look for duplicates
     if uni is not None:
         duplicates = []
