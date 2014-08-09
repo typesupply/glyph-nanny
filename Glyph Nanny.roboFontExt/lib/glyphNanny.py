@@ -6,6 +6,7 @@ from fontTools.pens.cocoaPen import CocoaPen
 from robofab.pens.digestPen import DigestPointPen
 from AppKit import *
 import vanilla
+from vanilla import dialogs
 from defconAppKit.windows.baseWindow import BaseWindowController
 from mojo.roboFont import CurrentGlyph
 from mojo.roboFont import version as roboFontVersion
@@ -47,7 +48,7 @@ class GlyphNannyControls(BaseWindowController):
     def __init__(self):
         self.keysToControls = {}
 
-        self.w = vanilla.FloatingWindow((185, 375), "Glyph Nanny")
+        self.w = vanilla.FloatingWindow((185, 415), "Glyph Nanny")
 
         self.top = 10
 
@@ -73,6 +74,10 @@ class GlyphNannyControls(BaseWindowController):
             dict(key="unsmoothSmooths", title="Unsmooth Smooths"),
         ]
         self.buildSettingsGroup("outlineChecks", "Outline Checks", controls)
+
+        self.w.fontLine = vanilla.HorizontalLine((10, self.top, -10, 1))
+        self.top += 10
+        self.w.testFontButton = vanilla.Button((10, self.top, -10, 17), "Test Entire Font", sizeStyle="small", callback=self.testFontButtonCallback)
 
         self.setUpBaseWindowBehavior()
         self.startObserver()
@@ -111,12 +116,26 @@ class GlyphNannyControls(BaseWindowController):
             self.top += 20
         self.top += 10
 
-    def settingsCallback(self, sender):
+    def _getSettings(self):
         testStates = {}
         for key, cb in self.keysToControls.items():
             testStates[key] = cb.get()
+        return testStates
+
+    def settingsCallback(self, sender):
+        testStates = self._getSettings()
         self.observer.setTestStates(testStates)
         UpdateCurrentGlyphView()
+
+    def testFontButtonCallback(self, sender):
+        font = CurrentFont()
+        if font is None:
+            dialogs.message("There is no font to test.", "Open a font and try again.")
+            return
+        testStates = self._getSettings()
+        results = getFontReport(font, testStates, format=True)
+        print results
+
 
 # ----------------
 # Drawing Observer
@@ -465,6 +484,78 @@ def calcMid(pt1, pt2):
 # Reporter
 # --------
 
+def _testList():
+    l = [
+        # glyph checks
+        dict(key="unicodeValue",              description="Unicode value may have problems.",                                        function=testUnicodeValue),
+        dict(key="contourCount",              description="There are an unusual number of contours.",                                function=testContourCount),
+        # outline checks
+        dict(key="strayPoints",               description="One or more stray points are present.",                                   function=testForStrayPoints),
+        dict(key="smallContours",             description="One or more contours are suspiciously small.",                            function=testForSmallContours),
+        dict(key="openContours",              description="One or more contours are not properly closed.",                           function=testForOpenContours),
+        dict(key="duplicateContours",         description="One or more contours are duplicated.",                                    function=testDuplicateContours),
+        dict(key="extremePoints",             description="One or more curves need an extreme point.",                               function=testForExtremePoints),
+        dict(key="unnecessaryPoints",         description="One or more unnecessary points are present in lines.",                    function=testForUnnecessaryPoints),
+        dict(key="unnecessaryHandles",        description="One or more curves has unnecessary handles.",                             function=testForUnnecessaryHandles),
+        dict(key="overlappingPoints",         description="Two or more points are overlapping.",                                     function=testForOverlappingPoints),
+        dict(key="pointsNearVerticalMetrics", description="Two or more points are just off a vertical metric.",                      function=testForPointsNearVerticalMetrics),
+        dict(key="complexCurves",             description="One or more curves is suspiciously complex.",                             function=testForComplexCurves),
+        dict(key="crossedHandles",            description="One or more curves contain crossed handles.",                             function=testForCrossedHandles),
+        dict(key="straightLines",             description="One or more lines is a few units from being horizontal or vertical.",     function=testForStraightLines),
+        dict(key="unsmoothSmooths",           description="One or more smooth points do not have handles that are properly placed.", function=testUnsmoothSmooths),
+    ]
+    return l
+
+def getFontReport(font, testStates, format=False):
+    """
+    Get a report about all glyphs in the font.
+
+    testStates should be a dict of the test names
+    and a boolean indicating if they should be
+    executed or not.
+    """
+    results = {}
+    for name in font.glyphOrder:
+        glyph = font[name]
+        report = getGlyphReport(font, glyph, testStates)
+        results[name] = report
+    if format:
+        all = []
+        for name in font.glyphOrder:
+            report = results[name]
+            l = []
+            for test in _testList():
+                key = test["key"]
+                description = test["description"]
+                value = report.get(key)
+                if value:
+                    l.append(description)
+            if l:
+                l.insert(0, "-" * len(name))
+                l.insert(0, name)
+                all.append("\n".join(l))
+        results = "\n\n".join(all)
+    return results
+
+def getGlyphReport(font, glyph, testStates):
+    """
+    Get a report about the glyph.
+
+    testStates should be a dict of the test names
+    and a boolean indicating if they should be
+    executed or not.
+    """
+    tests = _testList()
+    report = {}
+    for d in tests:
+        key = d["key"]
+        test = d["function"]
+        if testStates.get(key, True):
+            report[key] = test(glyph)
+        else:
+            report[key] = None
+    return report
+    
 def tupleToDict(t):
     d = {}
     for k, v in t:
@@ -479,39 +570,6 @@ def GlyphNannyReportFactory(glyph, font, testStates=None):
     font = glyph.getParent()
     d = tupleToDict(testStates)
     return getGlyphReport(font, glyph, d)
-
-def getGlyphReport(font, glyph, testStates):
-    """
-    Get a report about the glyph.
-
-    testStates should be a dict of the test names
-    and a boolean indicating if they should be
-    executed or not.
-    """
-    tests = dict(
-        unicodeValue=testUnicodeValue,
-        contourCount=testContourCount,
-        strayPoints=testForStrayPoints,
-        smallContours=testForSmallContours,
-        openContours=testForOpenContours,
-        duplicateContours=testDuplicateContours,
-        extremePoints=testForExtremePoints,
-        unnecessaryPoints=testForUnnecessaryPoints,
-        unnecessaryHandles=testForUnnecessaryHandles,
-        overlappingPoints=testForOverlappingPoints,
-        pointsNearVerticalMetrics=testForPointsNearVerticalMetrics,
-        complexCurves=testForComplexCurves,
-        crossedHandles=testForCrossedHandles,
-        straightLines=testForStraightLines,
-        unsmoothSmooths=testUnsmoothSmooths,
-    )
-    report = {}
-    for key, test in tests.items():
-        if testStates.get(key, True):
-            report[key] = test(glyph)
-        else:
-            report[key] = None
-    return report
 
 # Glyph Data
 
@@ -653,9 +711,9 @@ def testForComplexCurves(glyph):
                 pt3 = _unwrapPoint(segment.onCurve)
                 line1 = (pt0, pt3)
                 line2 = (pt1, pt2)
-                if index not in impliedS:
-                    impliedS[index] = []
                 if _intersectLines(line1, line2):
+                    if index not in impliedS:
+                        impliedS[index] = []
                     impliedS[index].append((prev, pt1, pt2, pt3))
             prev = _unwrapPoint(segment.onCurve)
     return impliedS
