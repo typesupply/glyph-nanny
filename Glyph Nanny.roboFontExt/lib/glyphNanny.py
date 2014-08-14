@@ -15,26 +15,6 @@ from mojo.events import addObserver, removeObserver
 
 DEBUG = True
 
-# ------
-# Colors
-# ------
-
-# Informative: Blue
-def colorInform(alpha=0.3):
-    return NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 0, 0.7, alpha)
-
-# Insert Something: Green
-def colorInsert(alpha=0.75):
-    return NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 1, 0, alpha)
-
-# Remove Something: Red
-def colorRemove(alpha=0.5):
-    return NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, alpha)
-
-# Review Something: Yellow-Orange
-def colorReview(alpha=0.7):
-    return NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, alpha)
-
 # -------
 # Palette
 # -------
@@ -87,8 +67,8 @@ class GlyphNannyControls(BaseWindowController):
 
     def startObserver(self):
         self.observer = GlyphNannyObserver()
-        addObserver(self.observer, "drawComments", "drawBackground")
-        addObserver(self.observer, "drawComments", "drawInactive")
+        addObserver(self.observer, "drawReport", "drawBackground")
+        addObserver(self.observer, "drawReport", "drawInactive")
 
     def stopObserver(self):
         removeObserver(self.observer, "drawBackground")
@@ -146,7 +126,7 @@ class GlyphNannyObserver(object):
             t.append((k, v))
         self.testStates = tuple(t)
 
-    def drawComments(self, info):
+    def drawReport(self, info):
         glyph = info["glyph"]
         if glyph is None:
             return
@@ -157,69 +137,17 @@ class GlyphNannyObserver(object):
             report = getGlyphReport(font, glyph, d)
         else:
             report = glyph.getRepresentation("com.typesupply.GlyphNanny.Report", testStates=self.testStates)
-        # metrics tests
-        d = report.get("metricsSymmetry")
-        if d:
-            drawMetricsSymmetry(d, scale)
-        # small contours
-        d = report.get("smallContours")
-        if d:
-            drawSmallContours(d, scale)
-        # points near vertical metrics
-        d = report.get("pointsNearVerticalMetrics")
-        if d:
-            drawSegmentsNearVericalMetrics(d, scale)
-        # implied S curves
-        d = report.get("complexCurves")
-        if d:
-            drawComplexCurves(d, scale)
-        # crossed handles
-        d = report.get("crossedHandles")
-        if d:
-            drawCrossedHandles(d, scale)
-        # unsmooth smooths
-        d = report.get("unsmoothSmooths")
-        if d:
-            drawUnsmoothSmooths(d, scale)
-        # straight lines
-        d = report.get("straightLines")
-        if d:
-            drawStraightLines(d, scale)
-        # duplicate contours
-        d = report.get("duplicateContours")
-        if d:
-            drawDuplicateContours(d, scale)
-        # open contours
-        d = report.get("openContours")
-        if d:
-            drawOpenContours(d, scale)
-        # missing extremes
-        d = report.get("extremePoints")
-        if d:
-            drawExtremePoints(d, scale)
-        # stray points
-        d = report.get("strayPoints")
-        if d:
-            drawStrayPoints(d, scale)
-        # unnecessary points
-        d = report.get("unnecessaryPoints")
-        if d:
-            drawUnnecessaryPoints(d, scale)
-        # unnecessary handles
-        d = report.get("unnecessaryHandles")
-        if d:
-            drawUnnecessaryHandles(d, scale)
-        # overlapping points
-        d = report.get("overlappingPoints")
-        if d:
-            drawOverlappingPoints(d, scale)
-        # text report
+        for key in drawingOrder:
+            data = report.get(key)
+            drawingFunction = testRegistry[key]["drawingFunction"]
+            if drawingFunction is not None:
+                drawingFunction(data, scale)
         drawTextReport(report, scale)
 
 
-# ---------
-# Reporters
-# ---------
+# ------
+# Orders
+# ------
 
 reportOrder = """
 unicodeValue
@@ -239,6 +167,29 @@ crossedHandles
 straightLines
 unsmoothSmooths
 """.strip().splitlines()
+
+drawingOrder = """
+unicodeValue
+contourCount
+metricsSymmetry
+smallContours
+pointsNearVerticalMetrics
+complexCurves
+crossedHandles
+unsmoothSmooths
+straightLines
+duplicateContours
+openContours
+extremePoints
+strayPoints
+unnecessaryPoints
+unnecessaryHandles
+overlappingPoints
+""".strip().splitlines()
+
+# ---------
+# Reporters
+# ---------
 
 # Font
 
@@ -338,9 +289,29 @@ def registerTest(identifier=None, description=None, testFunction=None, drawingFu
         drawingFunction=drawingFunction
     )
 
-# -----------
-# Glyph Level
-# -----------
+# ------
+# Colors
+# ------
+
+# Informative: Blue
+def colorInform(alpha=0.3):
+    return NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 0, 0.7, alpha)
+
+# Insert Something: Green
+def colorInsert(alpha=0.75):
+    return NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 1, 0, alpha)
+
+# Remove Something: Red
+def colorRemove(alpha=0.5):
+    return NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, alpha)
+
+# Review Something: Yellow-Orange
+def colorReview(alpha=0.7):
+    return NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, alpha)
+
+# -----------------
+# Glyph Level Tests
+# -----------------
 
 textReportColor = colorInform()
 
@@ -428,9 +399,9 @@ registerTest(
     drawingFunction=None
 )
 
-# -------------
-# Metrics Level
-# -------------
+# -------------------
+# Metrics Level Tests
+# -------------------
 
 # Symmetry
 
@@ -482,9 +453,9 @@ registerTest(
     drawingFunction=drawMetricsSymmetry
 )
 
-# -------------
-# Contour Level
-# -------------
+# -------------------
+# Contour Level Tests
+# -------------------
 
 # Duplicate Contours
 
@@ -659,9 +630,9 @@ registerTest(
     drawingFunction=drawExtremePoints
 )
 
-# -------------
-# Segment Level
-# -------------
+# -------------------
+# Segment Level Tests
+# -------------------
 
 def testForStraightLines(glyph):
     """
@@ -1035,9 +1006,9 @@ registerTest(
     drawingFunction=drawUnnecessaryHandles
 )
 
-# -----------
-# Point Level
-# -----------
+# -----------------
+# Point Level Tests
+# -----------------
 
 # Stray Points
 
@@ -1256,4 +1227,5 @@ if __name__ == "__main__":
     if roboFontVersion > "1.5.1":
         _registerFactory()
     assert set(reportOrder) == set(testRegistry.keys())
+    assert set(drawingOrder) == set(testRegistry.keys())
     GlyphNannyControls()
