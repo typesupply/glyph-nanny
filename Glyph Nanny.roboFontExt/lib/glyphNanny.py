@@ -217,45 +217,6 @@ class GlyphNannyObserver(object):
         drawTextReport(report, scale)
 
 
-# -----------------
-# Drawing Utilities
-# -----------------
-
-def drawDeleteMark(pt, scale, path):
-    h = 6 * scale
-    x, y = pt
-    x1 = x - h
-    x2 = x + h
-    y1 = y - h
-    y2 = y + h
-    path.moveToPoint_((x1, y1))
-    path.lineToPoint_((x2, y2))
-    path.moveToPoint_((x1, y2))
-    path.lineToPoint_((x2, y1))
-
-def drawString(pt, text, size, scale, color, alignment="center", backgroundColor=None):
-    attributes = attributes = {
-        NSFontAttributeName : NSFont.fontWithName_size_("Lucida Grande", size * scale),
-        NSForegroundColorAttributeName : color
-    }
-    if backgroundColor is not None:
-        text = " " + text + " "
-        attributes[NSBackgroundColorAttributeName] = backgroundColor
-    text = NSAttributedString.alloc().initWithString_attributes_(text, attributes)
-    x, y = pt
-    if alignment == "center":
-        width, height = text.size()
-        x -= width / 2.0
-        y -= height / 2.0
-    text.drawAtPoint_((x, y))
-
-def calcMid(pt1, pt2):
-    x1, y1 = pt1
-    x2, y2 = pt2
-    x = x1 - ((x1 - x2) / 2)
-    y = y1 - ((y1 - y2) / 2)
-    return x, y
-
 # ---------
 # Reporters
 # ---------
@@ -278,6 +239,8 @@ crossedHandles
 straightLines
 unsmoothSmooths
 """.strip().splitlines()
+
+# Font
 
 def getFontReport(font, testStates, format=False):
     """
@@ -310,6 +273,8 @@ def getFontReport(font, testStates, format=False):
         results = "\n\n".join(all)
     return results
 
+# Glyph
+
 def getGlyphReport(font, glyph, testStates):
     """
     Get a report about the glyph.
@@ -326,7 +291,9 @@ def getGlyphReport(font, glyph, testStates):
         else:
             report[key] = None
     return report
-    
+
+# Factory
+
 def tupleToDict(t):
     d = {}
     for k, v in t:
@@ -341,6 +308,22 @@ def GlyphNannyReportFactory(glyph, font, testStates=None):
     font = glyph.getParent()
     d = tupleToDict(testStates)
     return getGlyphReport(font, glyph, d)
+
+def _registerFactory():
+    # always register if debugging
+    # otherwise only register if it isn't registered
+    from defcon import addRepresentationFactory, removeRepresentationFactory
+    from defcon.objects import glyph as _xxxHackGlyph
+    if DEBUG:
+        if "com.typesupply.GlyphNanny.Report" in _xxxHackGlyph._representationFactories:
+            for font in AllFonts():
+                for glyph in font:
+                    glyph.naked().destroyAllRepresentations()
+            removeRepresentationFactory("com.typesupply.GlyphNanny.Report")
+        addRepresentationFactory("com.typesupply.GlyphNanny.Report", GlyphNannyReportFactory)
+    else:
+        if "com.typesupply.GlyphNanny.Report" not in _xxxHackGlyph._representationFactories:
+            addRepresentationFactory("com.typesupply.GlyphNanny.Report", GlyphNannyReportFactory)
 
 # -------------
 # Test Registry
@@ -1176,9 +1159,9 @@ registerTest(
     drawingFunction=drawOverlappingPoints
 )
 
-# ---------
-# Utilities
-# ---------
+# --------------
+# Test Utilities
+# --------------
 
 def _getOnCurves(contour):
     points = set()
@@ -1230,25 +1213,44 @@ def _getAngleOffset(angle, distance):
     b = (c * math.sin(B)) / math.sin(C)
     return b
 
-# -------------------------------------------
-# Representation Factory Registration Hacking
-# -------------------------------------------
+# -----------------
+# Drawing Utilities
+# -----------------
 
-def _registerFactory():
-    # always register if debugging
-    # otherwise only register if it isn't registered
-    from defcon import addRepresentationFactory, removeRepresentationFactory
-    from defcon.objects import glyph as _xxxHackGlyph
-    if DEBUG:
-        if "com.typesupply.GlyphNanny.Report" in _xxxHackGlyph._representationFactories:
-            for font in AllFonts():
-                for glyph in font:
-                    glyph.naked().destroyAllRepresentations()
-            removeRepresentationFactory("com.typesupply.GlyphNanny.Report")
-        addRepresentationFactory("com.typesupply.GlyphNanny.Report", GlyphNannyReportFactory)
-    else:
-        if "com.typesupply.GlyphNanny.Report" not in _xxxHackGlyph._representationFactories:
-            addRepresentationFactory("com.typesupply.GlyphNanny.Report", GlyphNannyReportFactory)
+def drawDeleteMark(pt, scale, path):
+    h = 6 * scale
+    x, y = pt
+    x1 = x - h
+    x2 = x + h
+    y1 = y - h
+    y2 = y + h
+    path.moveToPoint_((x1, y1))
+    path.lineToPoint_((x2, y2))
+    path.moveToPoint_((x1, y2))
+    path.lineToPoint_((x2, y1))
+
+def drawString(pt, text, size, scale, color, alignment="center", backgroundColor=None):
+    attributes = attributes = {
+        NSFontAttributeName : NSFont.fontWithName_size_("Lucida Grande", size * scale),
+        NSForegroundColorAttributeName : color
+    }
+    if backgroundColor is not None:
+        text = " " + text + " "
+        attributes[NSBackgroundColorAttributeName] = backgroundColor
+    text = NSAttributedString.alloc().initWithString_attributes_(text, attributes)
+    x, y = pt
+    if alignment == "center":
+        width, height = text.size()
+        x -= width / 2.0
+        y -= height / 2.0
+    text.drawAtPoint_((x, y))
+
+def calcMid(pt1, pt2):
+    x1, y1 = pt1
+    x2, y2 = pt2
+    x = x1 - ((x1 - x2) / 2)
+    y = y1 - ((y1 - y2) / 2)
+    return x, y
 
 if __name__ == "__main__":
     if roboFontVersion > "1.5.1":
