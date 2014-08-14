@@ -624,6 +624,8 @@ def testContourCount(glyph):
         report.append("This glyph has a unusally high number of overlapping contours.")
     return report
 
+# Contours
+
 def testDuplicateContours(glyph):
     """
     Contours shouldn't be duplicated on each other.
@@ -643,8 +645,6 @@ def testDuplicateContours(glyph):
         if len(indexes) > 1:
             duplicateContours.append(indexes[0])
     return duplicateContours
-
-# Contours
 
 def testForSmallContours(glyph):
     """
@@ -694,6 +694,53 @@ def testForExtremePoints(glyph):
         if points != testPoints:
             pointsAtExtrema[index] = testPoints - points
     return pointsAtExtrema
+
+# Segments
+
+def testForStraightLines(glyph):
+    """
+    Lines shouldn't be just shy of vertical or horizontal.
+    """
+    straightLines = {}
+    for index, contour in enumerate(glyph):
+        prev = _unwrapPoint(contour[-1].onCurve)
+        for segment in contour:
+            point = _unwrapPoint(segment.onCurve)
+            if segment.type == "line":
+                x = abs(prev[0] - point[0])
+                y = abs(prev[1] - point[1])
+                if x > 0 and x <= 5:
+                    if index not in straightLines:
+                        straightLines[index] = set()
+                    straightLines[index].add((prev, point))
+                if y > 0 and y <= 5:
+                    if index not in straightLines:
+                        straightLines[index] = set()
+                    straightLines[index].add((prev, point))
+            prev = point
+    return straightLines
+
+def testUnsmoothSmooths(glyph):
+    """
+    Smooth segments should have bcps in the right places.
+    """
+    unsmoothSmooths = {}
+    for index, contour in enumerate(glyph):
+        prev = contour[-1]
+        for segment in contour:
+            if prev.type == "curve" and segment.type == "curve":
+                if prev.smooth:
+                    angle1 = _calcAngle(prev.offCurve[1], prev.onCurve, r=0)
+                    angle2 = _calcAngle(prev.onCurve, segment.offCurve[0], r=0)
+                    if angle1 != angle2:
+                        if index not in unsmoothSmooths:
+                            unsmoothSmooths[index] = []
+                        pt1 = _unwrapPoint(prev.offCurve[1])
+                        pt2 = _unwrapPoint(prev.onCurve)
+                        pt3 = _unwrapPoint(segment.offCurve[0])
+                        unsmoothSmooths[index].append((pt1, pt2, pt3))
+            prev = segment
+    return unsmoothSmooths
 
 def testForComplexCurves(glyph):
     """
@@ -770,6 +817,45 @@ def testForCrossedHandles(glyph):
             pt0 = pt3
     return crossedHandles
 
+def testForUnnecessaryHandles(glyph):
+    """
+    Handles shouldn't be used if they aren't doing anything.
+    """
+    unnecessaryHandles = {}
+    for index, contour in enumerate(glyph):
+        prevPoint = contour[-1].onCurve
+        for segment in contour:
+            if segment.type == "curve":
+                pt0 = prevPoint
+                pt1, pt2 = segment.offCurve
+                pt3 = segment.onCurve
+                lineAngle = _calcAngle(pt0, pt3, 0)
+                bcpAngle1 = bcpAngle2 = None
+                if (pt0.x, pt0.y) != (pt1.x, pt1.y):
+                    bcpAngle1 = _calcAngle(pt0, pt1, 0)
+                if (pt2.x, pt2.y) != (pt3.x, pt3.y):
+                    bcpAngle2 = _calcAngle(pt2, pt3, 0)
+                if bcpAngle1 == lineAngle and bcpAngle2 == lineAngle:
+                    if index not in unnecessaryHandles:
+                        unnecessaryHandles[index] = []
+                    unnecessaryHandles[index].append((_unwrapPoint(pt1), _unwrapPoint(pt2)))
+            prevPoint = segment.onCurve
+    return unnecessaryHandles
+
+# Points
+
+def testForStrayPoints(glyph):
+    """
+    There should be no stray points.
+    """
+    strayPoints = {}
+    for index, contour in enumerate(glyph):
+        if len(contour) == 1:
+            pt = contour[0].onCurve
+            pt = (pt.x, pt.y)
+            strayPoints[index] = pt
+    return strayPoints
+
 def testForUnnecessaryPoints(glyph):
     """
     Consecutive segments shouldn't have the same angle.
@@ -806,92 +892,6 @@ def testForOverlappingPoints(glyph):
                 overlappingPoints[index].add(point)
             prev = point
     return overlappingPoints
-
-# Segments
-
-def testForUnnecessaryHandles(glyph):
-    """
-    Handles shouldn't be used if they aren't doing anything.
-    """
-    unnecessaryHandles = {}
-    for index, contour in enumerate(glyph):
-        prevPoint = contour[-1].onCurve
-        for segment in contour:
-            if segment.type == "curve":
-                pt0 = prevPoint
-                pt1, pt2 = segment.offCurve
-                pt3 = segment.onCurve
-                lineAngle = _calcAngle(pt0, pt3, 0)
-                bcpAngle1 = bcpAngle2 = None
-                if (pt0.x, pt0.y) != (pt1.x, pt1.y):
-                    bcpAngle1 = _calcAngle(pt0, pt1, 0)
-                if (pt2.x, pt2.y) != (pt3.x, pt3.y):
-                    bcpAngle2 = _calcAngle(pt2, pt3, 0)
-                if bcpAngle1 == lineAngle and bcpAngle2 == lineAngle:
-                    if index not in unnecessaryHandles:
-                        unnecessaryHandles[index] = []
-                    unnecessaryHandles[index].append((_unwrapPoint(pt1), _unwrapPoint(pt2)))
-            prevPoint = segment.onCurve
-    return unnecessaryHandles
-
-def testForStraightLines(glyph):
-    """
-    Lines shouldn't be just shy of vertical or horizontal.
-    """
-    straightLines = {}
-    for index, contour in enumerate(glyph):
-        prev = _unwrapPoint(contour[-1].onCurve)
-        for segment in contour:
-            point = _unwrapPoint(segment.onCurve)
-            if segment.type == "line":
-                x = abs(prev[0] - point[0])
-                y = abs(prev[1] - point[1])
-                if x > 0 and x <= 5:
-                    if index not in straightLines:
-                        straightLines[index] = set()
-                    straightLines[index].add((prev, point))
-                if y > 0 and y <= 5:
-                    if index not in straightLines:
-                        straightLines[index] = set()
-                    straightLines[index].add((prev, point))
-            prev = point
-    return straightLines
-
-def testUnsmoothSmooths(glyph):
-    """
-    Smooth segments should have bcps in the right places.
-    """
-    unsmoothSmooths = {}
-    for index, contour in enumerate(glyph):
-        prev = contour[-1]
-        for segment in contour:
-            if prev.type == "curve" and segment.type == "curve":
-                if prev.smooth:
-                    angle1 = _calcAngle(prev.offCurve[1], prev.onCurve, r=0)
-                    angle2 = _calcAngle(prev.onCurve, segment.offCurve[0], r=0)
-                    if angle1 != angle2:
-                        if index not in unsmoothSmooths:
-                            unsmoothSmooths[index] = []
-                        pt1 = _unwrapPoint(prev.offCurve[1])
-                        pt2 = _unwrapPoint(prev.onCurve)
-                        pt3 = _unwrapPoint(segment.offCurve[0])
-                        unsmoothSmooths[index].append((pt1, pt2, pt3))
-            prev = segment
-    return unsmoothSmooths
-
-# Points
-
-def testForStrayPoints(glyph):
-    """
-    There should be no stray points.
-    """
-    strayPoints = {}
-    for index, contour in enumerate(glyph):
-        if len(contour) == 1:
-            pt = contour[0].onCurve
-            pt = (pt.x, pt.y)
-            strayPoints[index] = pt
-    return strayPoints
 
 def testForPointsNearVerticalMetrics(glyph):
     """
