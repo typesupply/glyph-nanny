@@ -297,8 +297,7 @@ class GlyphNannyObserver(object):
                 path = NSBezierPath.bezierPath()
                 path.moveToPoint_(pt0)
                 path.curveToPoint_controlPoint1_controlPoint2_(pt3, pt1, pt2)
-                path.setLineDash_count_phase_([0, 10 * scale], 2, 0.0)
-                path.setLineWidth_(5 * scale)
+                path.setLineWidth_(3 * scale)
                 path.setLineCapStyle_(NSRoundLineCapStyle)
                 path.stroke()
                 mid = splitCubicAtT(pt0, pt1, pt2, pt3, 0.5)[0][-1]
@@ -321,7 +320,6 @@ class GlyphNannyObserver(object):
                 x, y = pt5
                 r = ((x - h, y - h), (d, d))
                 path2.appendBezierPathWithOvalInRect_(r)
-                path1.setLineDash_count_phase_([0, 6 * scale], 2, 0.0)
                 path1.setLineWidth_(3 * scale)
                 path1.setLineCapStyle_(NSRoundLineCapStyle)
                 path1.stroke()
