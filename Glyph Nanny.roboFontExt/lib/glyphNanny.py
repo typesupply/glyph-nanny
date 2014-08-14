@@ -20,24 +20,28 @@ DEBUG = False
 # ------
 
 # Informative: Blue
-# Insert Something: Green
-# Remove Something: Red
-# Review Something: Yellow-Ornage
+textReportColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 0, 0.7, 0.3)
 
+# Insert Something: Green
 missingExtremaColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 1, 0, 0.75)
 openContourColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 0, 0, 0.5)
+
+# Remove Something: Red
 strayPointColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 smallContourColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 1, 0, 0.7)
-textReportColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 0, 0.7, 0.3)
-impliedSCurveColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.8, 0, 0.85)
 unnecessaryPointsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 unnecessaryHandlesColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 overlappingPointsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
+duplicateContourColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
+
+# Review Something: Yellow-Orange
+impliedSCurveColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.8, 0, 0.85)
 pointsNearVerticalMetricsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
 straightLineColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
 crossedHandlesColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
-duplicateContourColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
 unsmoothSmoothsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
+metricsSymmetryColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
+
 
 # -------
 # Palette
@@ -161,6 +165,10 @@ class GlyphNannyObserver(object):
             report = getGlyphReport(font, glyph, d)
         else:
             report = glyph.getRepresentation("com.typesupply.GlyphNanny.Report", testStates=self.testStates)
+        # metrics tests
+        d = report.get("metricsSymmetry")
+        if d:
+            self.drawMetricsSymmetry(d, scale)
         # small contours
         d = report.get("smallContours")
         if d:
@@ -215,6 +223,29 @@ class GlyphNannyObserver(object):
             self.drawOverlappingPoints(d, scale)
         # text report
         self.drawTextReport(report, scale)
+
+    def drawMetricsSymmetry(self, data, scale):
+        left = data["left"]
+        right = data["right"]
+        width = data["width"]
+        message = data["message"]
+        y = -20
+        x = left + (((width - right) - left) / 2.0)
+        path = NSBezierPath.bezierPath()
+        path.moveToPoint_((min((0, left)), y))
+        path.lineToPoint_((max((width, width - right)), y))
+        path.moveToPoint_((0, 0))
+        path.lineToPoint_((0, y * 2))
+        path.moveToPoint_((left, 0))
+        path.lineToPoint_((left, y * 2))
+        path.moveToPoint_((width - right, 0))
+        path.lineToPoint_((width - right, y * 2))
+        path.moveToPoint_((width, 0))
+        path.lineToPoint_((width, y * 2))
+        path.setLineWidth_(scale)
+        metricsSymmetryColor.set()
+        path.stroke()
+        drawString((x, y), message, 10, scale, metricsSymmetryColor, backgroundColor=NSColor.whiteColor())
 
     def drawSmallContours(self, contours, scale):
         smallContourColor.set()
@@ -462,6 +493,7 @@ def drawString(pt, text, size, scale, color, alignment="center", backgroundColor
         NSForegroundColorAttributeName : color
     }
     if backgroundColor is not None:
+        text = " " + text + " "
         attributes[NSBackgroundColorAttributeName] = backgroundColor
     text = NSAttributedString.alloc().initWithString_attributes_(text, attributes)
     x, y = pt
@@ -487,6 +519,8 @@ def _testList():
         # glyph checks
         dict(key="unicodeValue",              description="Unicode value may have problems.",                                        function=testUnicodeValue),
         dict(key="contourCount",              description="There are an unusual number of contours.",                                function=testContourCount),
+        # metrics checks
+        dict(key="metricsSymmetry",           description="The side-bearings are almost equal",                                      function=testMetricsSymmetry),
         # outline checks
         dict(key="strayPoints",               description="One or more stray points are present.",                                   function=testForStrayPoints),
         dict(key="smallContours",             description="One or more contours are suspiciously small.",                            function=testForSmallContours),
@@ -569,7 +603,7 @@ def GlyphNannyReportFactory(glyph, font, testStates=None):
     d = tupleToDict(testStates)
     return getGlyphReport(font, glyph, d)
 
-# Glyph Data
+# Glyph
 
 uniNamePattern = re.compile(
     "uni"
@@ -610,8 +644,6 @@ def testUnicodeValue(glyph):
             report.append("The Unicode for this glyph is also used by: %s." % " ".join(duplicates))
     return report
 
-# Glyph Construction
-
 def testContourCount(glyph):
     """
     There shouldn't be too many overlapping contours.
@@ -623,6 +655,25 @@ def testContourCount(glyph):
     if count - len(test) > 2:
         report.append("This glyph has a unusally high number of overlapping contours.")
     return report
+
+# Metrics
+
+def testMetricsSymmetry(glyph):
+    """
+    Sometimes glyphs are almost symmetrical, but could be.
+    """
+    left = glyph.leftMargin
+    right = glyph.rightMargin
+    diff = int(round(abs(left - right)))
+    if diff == 1:
+        message = "The side-bearings are 1 unit from being equal."
+    else:
+        message = "The side-bearings are %d units from being equal." % diff
+    data = dict(left=left, right=right, width=glyph.width, message=message)
+    if 0 < diff <= 5:
+        return data
+    return None
+
 
 # Contours
 
@@ -1006,6 +1057,9 @@ def _registerFactory():
     from defcon.objects import glyph as _xxxHackGlyph
     if DEBUG:
         if "com.typesupply.GlyphNanny.Report" in _xxxHackGlyph._representationFactories:
+            for font in AllFonts():
+                for glyph in font:
+                    glyph.naked().destroyAllRepresentations()
             removeRepresentationFactory("com.typesupply.GlyphNanny.Report")
         addRepresentationFactory("com.typesupply.GlyphNanny.Report", GlyphNannyReportFactory)
     else:
