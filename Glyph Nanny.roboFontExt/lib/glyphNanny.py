@@ -256,33 +256,28 @@ def calcMid(pt1, pt2):
     y = y1 - ((y1 - y2) / 2)
     return x, y
 
-# --------
-# Reporter
-# --------
+# ---------
+# Reporters
+# ---------
 
-def _testList():
-    l = [
-        # glyph checks
-        dict(key="unicodeValue",              description="Unicode value may have problems.",                                        function=testUnicodeValue),
-        dict(key="contourCount",              description="There are an unusual number of contours.",                                function=testContourCount),
-        # metrics checks
-        dict(key="metricsSymmetry",           description="The side-bearings are almost equal",                                      function=testMetricsSymmetry),
-        # outline checks
-        dict(key="strayPoints",               description="One or more stray points are present.",                                   function=testForStrayPoints),
-        dict(key="smallContours",             description="One or more contours are suspiciously small.",                            function=testForSmallContours),
-        dict(key="openContours",              description="One or more contours are not properly closed.",                           function=testForOpenContours),
-        dict(key="duplicateContours",         description="One or more contours are duplicated.",                                    function=testDuplicateContours),
-        dict(key="extremePoints",             description="One or more curves need an extreme point.",                               function=testForExtremePoints),
-        dict(key="unnecessaryPoints",         description="One or more unnecessary points are present in lines.",                    function=testForUnnecessaryPoints),
-        dict(key="unnecessaryHandles",        description="One or more curves has unnecessary handles.",                             function=testForUnnecessaryHandles),
-        dict(key="overlappingPoints",         description="Two or more points are overlapping.",                                     function=testForOverlappingPoints),
-        dict(key="pointsNearVerticalMetrics", description="Two or more points are just off a vertical metric.",                      function=testForSegmentsNearVerticalMetrics),
-        dict(key="complexCurves",             description="One or more curves is suspiciously complex.",                             function=testForComplexCurves),
-        dict(key="crossedHandles",            description="One or more curves contain crossed handles.",                             function=testForCrossedHandles),
-        dict(key="straightLines",             description="One or more lines is a few units from being horizontal or vertical.",     function=testForStraightLines),
-        dict(key="unsmoothSmooths",           description="One or more smooth points do not have handles that are properly placed.", function=testUnsmoothSmooths),
-    ]
-    return l
+reportOrder = """
+unicodeValue
+contourCount
+metricsSymmetry
+strayPoints
+smallContours
+openContours
+duplicateContours
+extremePoints
+unnecessaryPoints
+unnecessaryHandles
+overlappingPoints
+pointsNearVerticalMetrics
+complexCurves
+crossedHandles
+straightLines
+unsmoothSmooths
+""".strip().splitlines()
 
 def getFontReport(font, testStates, format=False):
     """
@@ -302,9 +297,9 @@ def getFontReport(font, testStates, format=False):
         for name in font.glyphOrder:
             report = results[name]
             l = []
-            for test in _testList():
-                key = test["key"]
-                description = test["description"]
+            for key in reportOrder:
+                data = testRegistry[key]
+                description = data["description"]
                 value = report.get(key)
                 if value:
                     l.append(description)
@@ -323,13 +318,11 @@ def getGlyphReport(font, glyph, testStates):
     and a boolean indicating if they should be
     executed or not.
     """
-    tests = _testList()
     report = {}
-    for d in tests:
-        key = d["key"]
-        test = d["function"]
+    for key, data in testRegistry.items():
+        testFunction = data["testFunction"]
         if testStates.get(key, True):
-            report[key] = test(glyph)
+            report[key] = testFunction(glyph)
         else:
             report[key] = None
     return report
@@ -348,6 +341,19 @@ def GlyphNannyReportFactory(glyph, font, testStates=None):
     font = glyph.getParent()
     d = tupleToDict(testStates)
     return getGlyphReport(font, glyph, d)
+
+# -------------
+# Test Registry
+# -------------
+
+testRegistry = {}
+
+def registerTest(identifier=None, description=None, testFunction=None, drawingFunction=None):
+    testRegistry[identifier] = dict(
+        description=description,
+        testFunction=testFunction,
+        drawingFunction=drawingFunction
+    )
 
 # -----------
 # Glyph Level
@@ -410,6 +416,14 @@ def testUnicodeValue(glyph):
             report.append("The Unicode for this glyph is also used by: %s." % " ".join(duplicates))
     return report
 
+registerTest(
+    identifier="unicodeValue",
+    description="Unicode value may have problems.",
+    testFunction=testUnicodeValue,
+    drawingFunction=None
+)
+
+
 # Contour Count
 
 def testContourCount(glyph):
@@ -423,6 +437,13 @@ def testContourCount(glyph):
     if count - len(test) > 2:
         report.append("This glyph has a unusally high number of overlapping contours.")
     return report
+
+registerTest(
+    identifier="contourCount",
+    description="There are an unusual number of contours.",
+    testFunction=testContourCount,
+    drawingFunction=None
+)
 
 # -------------
 # Metrics Level
@@ -471,6 +492,13 @@ def drawMetricsSymmetry(data, scale):
     path.stroke()
     drawString((x, y), message, 10, scale, metricsSymmetryColor, backgroundColor=NSColor.whiteColor())
 
+registerTest(
+    identifier="metricsSymmetry",
+    description="The side-bearings are almost equal",
+    testFunction=testMetricsSymmetry,
+    drawingFunction=drawMetricsSymmetry
+)
+
 # -------------
 # Contour Level
 # -------------
@@ -515,6 +543,13 @@ def drawDuplicateContours(contours, scale):
         x, y = mid
         drawString((x, y - (10 * scale)), "Duplicate Contour", 10, scale, duplicateContoursColor)
 
+registerTest(
+    identifier="duplicateContours",
+    description="One or more contours are duplicated.",
+    testFunction=testDuplicateContours,
+    drawingFunction=drawDuplicateContours
+)
+
 # Small Contours
 
 def testForSmallContours(glyph):
@@ -549,6 +584,13 @@ def drawSmallContours(contours, scale):
         y = yMin - (10 * scale)
         drawString((x, y), "Tiny Contour", 10, scale, smallContoursColor)
 
+registerTest(
+    identifier="smallContours",
+    description="One or more contours are suspiciously small.",
+    testFunction=testForSmallContours,
+    drawingFunction=drawSmallContours
+)
+
 # Open Contours
 
 def testForOpenContours(glyph):
@@ -581,6 +623,13 @@ def drawOpenContours(contours, scale):
         path.setLineDash_count_phase_([4], 1, 0.0)
         path.stroke()
         drawString(mid, "Open Contour", 10, scale, openContoursColor, backgroundColor=NSColor.whiteColor())
+
+registerTest(
+    identifier="openContours",
+    description="One or more contours are not properly closed.",
+    testFunction=testForOpenContours,
+    drawingFunction=drawOpenContours
+)
 
 # Extreme Points
 
@@ -619,6 +668,13 @@ def drawExtremePoints(contours, scale):
     extremePointsColor.set()
     path.setLineWidth_(scale)
     path.stroke()
+
+registerTest(
+    identifier="extremePoints",
+    description="One or more curves need an extreme point.",
+    testFunction=testForExtremePoints,
+    drawingFunction=drawExtremePoints
+)
 
 # -------------
 # Segment Level
@@ -667,6 +723,13 @@ def drawStraightLines(contours, scale):
             r = ((xMin, yMin), (w, h))
             r = NSInsetRect(r, -2 * scale, -2 * scale)
             NSRectFillUsingOperation(r, NSCompositeSourceOver)
+
+registerTest(
+    identifier="straightLines",
+    description="One or more lines is a few units from being horizontal or vertical.",
+    testFunction=testForStraightLines,
+    drawingFunction=drawStraightLines
+)
 
 # Segments Near Vertical Metrics
 
@@ -744,6 +807,13 @@ def drawSegmentsNearVericalMetrics(verticalMetrics, scale):
     path.setLineWidth_(4 * scale)
     path.stroke()
 
+registerTest(
+    identifier="pointsNearVerticalMetrics",
+    description="Two or more points are just off a vertical metric.",
+    testFunction=testForSegmentsNearVerticalMetrics,
+    drawingFunction=drawSegmentsNearVericalMetrics
+)
+
 # Unsmooth Smooths
 
 def testUnsmoothSmooths(glyph):
@@ -781,6 +851,13 @@ def drawUnsmoothSmooths(contours, scale):
         path.stroke()
         x, y = pt2
         drawString((x, y - (10 * scale)), "Unsmooth Smooth", 10, scale, unsmoothSmoothsColor, backgroundColor=NSColor.whiteColor())
+
+registerTest(
+    identifier="unsmoothSmooths",
+    description="One or more smooth points do not have handles that are properly placed.",
+    testFunction=testUnsmoothSmooths,
+    drawingFunction=drawUnsmoothSmooths
+)
 
 # Complex Curves
 
@@ -820,6 +897,13 @@ def drawComplexCurves(contours, scale):
             path.stroke()
             mid = splitCubicAtT(pt0, pt1, pt2, pt3, 0.5)[0][-1]
             drawString(mid, "Complex Curve", 10, scale, complexCurvesColor, backgroundColor=NSColor.whiteColor())
+
+registerTest(
+    identifier="complexCurves",
+    description="One or more curves is suspiciously complex.",
+    testFunction=testForComplexCurves,
+    drawingFunction=drawComplexCurves
+)
 
 # Crossed Handles
 
@@ -902,6 +986,13 @@ def drawCrossedHandles(contours, scale):
             path2.fill()
             drawString((x, y - (12 * scale)), "Crossed Handles", 10, scale, crossedHandlesColor, backgroundColor=NSColor.whiteColor())
 
+registerTest(
+    identifier="crossedHandles",
+    description="One or more curves contain crossed handles.",
+    testFunction=testForCrossedHandles,
+    drawingFunction=drawCrossedHandles
+)
+
 # Unnecessary Handles
 
 def testForUnnecessaryHandles(glyph):
@@ -954,6 +1045,13 @@ def drawUnnecessaryHandles(contours, scale):
             mid = calcMid(bcp1, bcp2)
             drawString(mid, "Unnecessary Handles", 10, scale, unnecessaryHandlesColor, backgroundColor=NSColor.whiteColor())
 
+registerTest(
+    identifier="unnecessaryHandles",
+    description="One or more curves has unnecessary handles.",
+    testFunction=testForUnnecessaryHandles,
+    drawingFunction=drawUnnecessaryHandles
+)
+
 # -----------
 # Point Level
 # -----------
@@ -985,6 +1083,13 @@ def drawStrayPoints(contours, scale):
     strayPointsColor.set()
     path.setLineWidth_(scale)
     path.stroke()
+
+registerTest(
+    identifier="strayPoints",
+    description="One or more stray points are present.",
+    testFunction=testForStrayPoints,
+    drawingFunction=drawStrayPoints
+)
 
 # Unnecessary Points
 
@@ -1019,6 +1124,13 @@ def drawUnnecessaryPoints(contours, scale):
     unnecessaryPointsColor.set()
     path.setLineWidth_(2 * scale)
     path.stroke()
+
+registerTest(
+    identifier="unnecessaryPoints",
+    description="One or more unnecessary points are present in lines.",
+    testFunction=testForUnnecessaryPoints,
+    drawingFunction=drawUnnecessaryPoints
+)
 
 # Overlapping Points
 
@@ -1056,6 +1168,13 @@ def drawOverlappingPoints(contours, scale):
             drawString((x, y - (12 * scale)), "Overlapping Points", 10, scale, overlappingPointsColor)
     overlappingPointsColor.set()
     path.fill()
+
+registerTest(
+    identifier="overlappingPoints",
+    description="Two or more points are overlapping.",
+    testFunction=testForOverlappingPoints,
+    drawingFunction=drawOverlappingPoints
+)
 
 # ---------
 # Utilities
@@ -1134,4 +1253,5 @@ def _registerFactory():
 if __name__ == "__main__":
     if roboFontVersion > "1.5.1":
         _registerFactory()
+    assert set(reportOrder) == set(testRegistry.keys())
     GlyphNannyControls()
