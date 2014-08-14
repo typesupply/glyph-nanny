@@ -907,17 +907,43 @@ def testForPointsNearVerticalMetrics(glyph):
         value = getattr(font.info, attr)
         verticalMetrics[value] = set()
     for contour in glyph:
+        sequence = None
+        # test the last segment to start the sequence
+        pt = _unwrapPoint(contour[-1].onCurve)
+        near, currentMetric = _testPointNearVerticalMetrics(pt, verticalMetrics)
+        if near:
+            sequence = set()
+        # test them all
         for segment in contour:
             pt = _unwrapPoint(segment.onCurve)
-            y = pt[1]
-            for v in verticalMetrics:
-                d = abs(v - y)
-                if d != 0 and d <= 5:
-                    verticalMetrics[v].add(pt)
+            near, metric = _testPointNearVerticalMetrics(pt, verticalMetrics)
+            # hit on the same metric as the previous point
+            if near and sequence is not None and metric == currentMetric:
+                sequence.add(pt)
+            else:
+                # existing sequence, note it if needed, clear it
+                if sequence:
+                    if len(sequence) > 1:
+                        verticalMetrics[currentMetric] |= sequence
+                sequence = None
+                currentMetric = None
+                # hit, make a new sequence
+                if near:
+                    sequence = set()
+                    currentMetric = metric
+                    sequence.add(pt)
     for verticalMetric, points in verticalMetrics.items():
         if not points:
             del verticalMetrics[verticalMetric]
     return verticalMetrics
+
+def _testPointNearVerticalMetrics(pt, verticalMetrics):
+    y = pt[1]
+    for v in verticalMetrics:
+        d = abs(v - y)
+        if d != 0 and d <= 5:
+            return True, v
+    return False, None
 
 # Utilities
 
