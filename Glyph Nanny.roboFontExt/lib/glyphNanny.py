@@ -139,9 +139,10 @@ class GlyphNannyObserver(object):
             report = glyph.getRepresentation("com.typesupply.GlyphNanny.Report", testStates=self.testStates)
         for key in drawingOrder:
             data = report.get(key)
-            drawingFunction = testRegistry[key]["drawingFunction"]
-            if drawingFunction is not None:
-                drawingFunction(data, scale)
+            if data:
+                drawingFunction = testRegistry[key]["drawingFunction"]
+                if drawingFunction is not None:
+                    drawingFunction(data, scale)
         drawTextReport(report, scale)
 
 
