@@ -20,28 +20,20 @@ DEBUG = True
 # ------
 
 # Informative: Blue
-textReportColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 0, 0.7, 0.3)
+def colorInform(alpha=0.3):
+    return NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 0, 0.7, alpha)
 
 # Insert Something: Green
-missingExtremaColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 1, 0, 0.75)
-openContourColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 0, 0, 0.5)
+def colorInsert(alpha=0.75):
+    return NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 1, 0, alpha)
 
 # Remove Something: Red
-strayPointColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
-smallContourColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 1, 0, 0.7)
-unnecessaryPointsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
-unnecessaryHandlesColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
-overlappingPointsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
-duplicateContourColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
+def colorRemove(alpha=0.5):
+    return NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, alpha)
 
 # Review Something: Yellow-Orange
-impliedSCurveColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.8, 0, 0.85)
-pointsNearVerticalMetricsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
-straightLineColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
-crossedHandlesColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
-unsmoothSmoothsColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
-metricsSymmetryColor = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
-
+def colorReview(alpha=0.7):
+    return NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, alpha)
 
 # -------
 # Palette
@@ -225,7 +217,9 @@ class GlyphNannyObserver(object):
         drawTextReport(report, scale)
 
 
-# Utilities
+# -----------------
+# Drawing Utilities
+# -----------------
 
 def drawDeleteMark(pt, scale, path):
     h = 6 * scale
@@ -359,6 +353,8 @@ def GlyphNannyReportFactory(glyph, font, testStates=None):
 # Glyph Level
 # -----------
 
+textReportColor = colorInform()
+
 def drawTextReport(report, scale):
     text = []
     r = report.get("unicodeValue")
@@ -372,6 +368,8 @@ def drawTextReport(report, scale):
         x = 50
         y = 50
         drawString((x, y), text, 16, scale, textReportColor, alignment="left")
+
+# Unicode Value
 
 uniNamePattern = re.compile(
     "uni"
@@ -412,6 +410,8 @@ def testUnicodeValue(glyph):
             report.append("The Unicode for this glyph is also used by: %s." % " ".join(duplicates))
     return report
 
+# Contour Count
+
 def testContourCount(glyph):
     """
     There shouldn't be too many overlapping contours.
@@ -427,6 +427,26 @@ def testContourCount(glyph):
 # -------------
 # Metrics Level
 # -------------
+
+# Symmetry
+
+def testMetricsSymmetry(glyph):
+    """
+    Sometimes glyphs are almost symmetrical, but could be.
+    """
+    left = glyph.leftMargin
+    right = glyph.rightMargin
+    diff = int(round(abs(left - right)))
+    if diff == 1:
+        message = "The side-bearings are 1 unit from being equal."
+    else:
+        message = "The side-bearings are %d units from being equal." % diff
+    data = dict(left=left, right=right, width=glyph.width, message=message)
+    if 0 < diff <= 5:
+        return data
+    return None
+
+metricsSymmetryColor = colorReview()
 
 def drawMetricsSymmetry(data, scale):
     left = data["left"]
@@ -450,22 +470,6 @@ def drawMetricsSymmetry(data, scale):
     metricsSymmetryColor.set()
     path.stroke()
     drawString((x, y), message, 10, scale, metricsSymmetryColor, backgroundColor=NSColor.whiteColor())
-
-def testMetricsSymmetry(glyph):
-    """
-    Sometimes glyphs are almost symmetrical, but could be.
-    """
-    left = glyph.leftMargin
-    right = glyph.rightMargin
-    diff = int(round(abs(left - right)))
-    if diff == 1:
-        message = "The side-bearings are 1 unit from being equal."
-    else:
-        message = "The side-bearings are %d units from being equal." % diff
-    data = dict(left=left, right=right, width=glyph.width, message=message)
-    if 0 < diff <= 5:
-        return data
-    return None
 
 # -------------
 # Contour Level
@@ -493,10 +497,12 @@ def testDuplicateContours(glyph):
             duplicateContours.append(indexes[0])
     return duplicateContours
 
+duplicateContoursColor = colorRemove()
+
 def drawDuplicateContours(contours, scale):
     glyph = CurrentGlyph()
     font = glyph.getParent()
-    duplicateContourColor.set()
+    duplicateContoursColor.set()
     for contourIndex in contours:
         contour = glyph[contourIndex]
         pen = CocoaPen(font)
@@ -507,7 +513,7 @@ def drawDuplicateContours(contours, scale):
         xMin, yMin, xMax, yMax = contour.box
         mid = calcMid((xMin, yMin), (xMax, yMin))
         x, y = mid
-        drawString((x, y - (10 * scale)), "Duplicate Contour", 10, scale, duplicateContourColor)
+        drawString((x, y - (10 * scale)), "Duplicate Contour", 10, scale, duplicateContoursColor)
 
 # Small Contours
 
@@ -528,8 +534,10 @@ def testForSmallContours(glyph):
             smallContours[index] = contour.box
     return smallContours
 
+smallContoursColor = colorRemove(0.7)
+
 def drawSmallContours(contours, scale):
-    smallContourColor.set()
+    smallContoursColor.set()
     for contourIndex, box in contours.items():
         xMin, yMin, xMax, yMax = box
         w = xMax - xMin
@@ -539,7 +547,7 @@ def drawSmallContours(contours, scale):
         NSRectFillUsingOperation(r, NSCompositeSourceOver)
         x = xMin + (w / 2)
         y = yMin - (10 * scale)
-        drawString((x, y), "Tiny Contour", 10, scale, smallContourColor)
+        drawString((x, y), "Tiny Contour", 10, scale, smallContoursColor)
 
 # Open Contours
 
@@ -559,8 +567,10 @@ def testForOpenContours(glyph):
             openContours[index] = (start, end)
     return openContours
 
+openContoursColor = colorInsert()
+
 def drawOpenContours(contours, scale):
-    openContourColor.set()
+    openContoursColor.set()
     for contourIndex, points in contours.items():
         start, end = points
         mid = calcMid(start, end)
@@ -570,7 +580,7 @@ def drawOpenContours(contours, scale):
         path.setLineWidth_(scale)
         path.setLineDash_count_phase_([4], 1, 0.0)
         path.stroke()
-        drawString(mid, "Open Contour", 10, scale, openContourColor, backgroundColor=NSColor.whiteColor())
+        drawString(mid, "Open Contour", 10, scale, openContoursColor, backgroundColor=NSColor.whiteColor())
 
 # Extreme Points
 
@@ -590,6 +600,8 @@ def testForExtremePoints(glyph):
             pointsAtExtrema[index] = testPoints - points
     return pointsAtExtrema
 
+extremePointsColor = colorInsert()
+
 def drawExtremePoints(contours, scale):
     path = NSBezierPath.bezierPath()
     d = 16 * scale
@@ -603,8 +615,8 @@ def drawExtremePoints(contours, scale):
             path.lineToPoint_((x + h - o, y))
             path.moveToPoint_((x, y - h + o))
             path.lineToPoint_((x, y + h - o))
-            drawString((x, y - (16 * scale)), "Insert Point", 10, scale, missingExtremaColor)
-    missingExtremaColor.set()
+            drawString((x, y - (16 * scale)), "Insert Point", 10, scale, extremePointsColor)
+    extremePointsColor.set()
     path.setLineWidth_(scale)
     path.stroke()
 
@@ -635,8 +647,10 @@ def testForStraightLines(glyph):
             prev = point
     return straightLines
 
+straightLinesColor = colorReview()
+
 def drawStraightLines(contours, scale):
-    straightLineColor.set()
+    straightLinesColor.set()
     for contourIndex, segments in contours.items():
         for segment in segments:
             xs = []
@@ -706,6 +720,8 @@ def _testPointNearVerticalMetrics(pt, verticalMetrics):
             return True, v
     return False, None
 
+segmentsNearVerticalMetricsColor = colorReview()
+
 def drawSegmentsNearVericalMetrics(verticalMetrics, scale):
     path = NSBezierPath.bezierPath()
     for verticalMetric, points in verticalMetrics.items():
@@ -724,7 +740,7 @@ def drawSegmentsNearVericalMetrics(verticalMetrics, scale):
                 xMax = x
         path.moveToPoint_((xMin, verticalMetric))
         path.lineToPoint_((xMax, verticalMetric))
-    pointsNearVerticalMetricsColor.set()
+    segmentsNearVerticalMetricsColor.set()
     path.setLineWidth_(4 * scale)
     path.stroke()
 
@@ -751,6 +767,8 @@ def testUnsmoothSmooths(glyph):
                         unsmoothSmooths[index].append((pt1, pt2, pt3))
             prev = segment
     return unsmoothSmooths
+
+unsmoothSmoothsColor = colorReview()
 
 def drawUnsmoothSmooths(contours, scale):
     unsmoothSmoothsColor.set()
@@ -787,8 +805,10 @@ def testForComplexCurves(glyph):
             prev = _unwrapPoint(segment.onCurve)
     return impliedS
 
+complexCurvesColor = colorReview()
+
 def drawComplexCurves(contours, scale):
-    impliedSCurveColor.set()
+    complexCurvesColor.set()
     for contourIndex, segments in contours.items():
         for segment in segments:
             pt0, pt1, pt2, pt3 = segment
@@ -799,7 +819,7 @@ def drawComplexCurves(contours, scale):
             path.setLineCapStyle_(NSRoundLineCapStyle)
             path.stroke()
             mid = splitCubicAtT(pt0, pt1, pt2, pt3, 0.5)[0][-1]
-            drawString(mid, "Complex Curve", 10, scale, impliedSCurveColor, backgroundColor=NSColor.whiteColor())
+            drawString(mid, "Complex Curve", 10, scale, complexCurvesColor, backgroundColor=NSColor.whiteColor())
 
 # Crossed Handles
 
@@ -857,6 +877,8 @@ def testForCrossedHandles(glyph):
             pt0 = pt3
     return crossedHandles
 
+crossedHandlesColor = colorReview()
+
 def drawCrossedHandles(contours, scale):
     d = 10 * scale
     h = d / 2.0
@@ -907,6 +929,8 @@ def testForUnnecessaryHandles(glyph):
             prevPoint = segment.onCurve
     return unnecessaryHandles
 
+unnecessaryHandlesColor = colorRemove()
+
 def drawUnnecessaryHandles(contours, scale):
     unnecessaryHandlesColor.set()
     d = 10 * scale
@@ -948,6 +972,8 @@ def testForStrayPoints(glyph):
             strayPoints[index] = pt
     return strayPoints
 
+strayPointsColor = colorRemove()
+
 def drawStrayPoints(contours, scale):
     path = NSBezierPath.bezierPath()
     d = 20 * scale
@@ -955,8 +981,8 @@ def drawStrayPoints(contours, scale):
     for contourIndex, (x, y) in contours.items():
         r = ((x - h, y - h), (d, d))
         path.appendBezierPathWithOvalInRect_(r)
-        drawString((x, y - d), "Stray Point", 10, scale, strayPointColor)
-    strayPointColor.set()
+        drawString((x, y - d), "Stray Point", 10, scale, strayPointsColor)
+    strayPointsColor.set()
     path.setLineWidth_(scale)
     path.stroke()
 
@@ -980,6 +1006,8 @@ def testForUnnecessaryPoints(glyph):
                             unnecessaryPoints[index] = []
                         unnecessaryPoints[index].append(_unwrapPoint(segment.onCurve))
     return unnecessaryPoints
+
+unnecessaryPointsColor = colorRemove()
 
 def drawUnnecessaryPoints(contours, scale):
     path = NSBezierPath.bezierPath()
@@ -1011,6 +1039,8 @@ def testForOverlappingPoints(glyph):
                 overlappingPoints[index].add(point)
             prev = point
     return overlappingPoints
+
+overlappingPointsColor = colorRemove()
 
 def drawOverlappingPoints(contours, scale):
     path = NSBezierPath.bezierPath()
