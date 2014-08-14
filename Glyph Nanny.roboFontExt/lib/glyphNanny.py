@@ -13,7 +13,7 @@ from mojo.roboFont import version as roboFontVersion
 from mojo.UI import UpdateCurrentGlyphView
 from mojo.events import addObserver, removeObserver
 
-DEBUG = False
+DEBUG = True
 
 # ------
 # Colors
@@ -168,310 +168,62 @@ class GlyphNannyObserver(object):
         # metrics tests
         d = report.get("metricsSymmetry")
         if d:
-            self.drawMetricsSymmetry(d, scale)
+            drawMetricsSymmetry(d, scale)
         # small contours
         d = report.get("smallContours")
         if d:
-            self.drawSmallContours(d, scale)
+            drawSmallContours(d, scale)
         # points near vertical metrics
         d = report.get("pointsNearVerticalMetrics")
         if d:
-            self.drawPointsNearVericalMetrics(d, scale)
+            drawSegmentsNearVericalMetrics(d, scale)
         # implied S curves
         d = report.get("complexCurves")
         if d:
-            self.drawComplexCurves(d, scale)
+            drawComplexCurves(d, scale)
         # crossed handles
         d = report.get("crossedHandles")
         if d:
-            self.drawCrossedHandles(d, scale)
+            drawCrossedHandles(d, scale)
         # unsmooth smooths
         d = report.get("unsmoothSmooths")
         if d:
-            self.drawUnsmoothSmooths(d, scale)
+            drawUnsmoothSmooths(d, scale)
         # straight lines
         d = report.get("straightLines")
         if d:
-            self.drawStraightLines(d, scale)
+            drawStraightLines(d, scale)
         # duplicate contours
         d = report.get("duplicateContours")
         if d:
-            self.drawDuplicateContours(d, scale)
+            drawDuplicateContours(d, scale)
         # open contours
         d = report.get("openContours")
         if d:
-            self.drawOpenContours(d, scale)
+            drawOpenContours(d, scale)
         # missing extremes
         d = report.get("extremePoints")
         if d:
-            self.drawExtremePoints(d, scale)
+            drawExtremePoints(d, scale)
         # stray points
         d = report.get("strayPoints")
         if d:
-            self.drawStrayPoints(d, scale)
+            drawStrayPoints(d, scale)
         # unnecessary points
         d = report.get("unnecessaryPoints")
         if d:
-            self.drawUnnecessaryPoints(d, scale)
+            drawUnnecessaryPoints(d, scale)
         # unnecessary handles
         d = report.get("unnecessaryHandles")
         if d:
-            self.drawUnnecessaryHandles(d, scale)
+            drawUnnecessaryHandles(d, scale)
         # overlapping points
         d = report.get("overlappingPoints")
         if d:
-            self.drawOverlappingPoints(d, scale)
+            drawOverlappingPoints(d, scale)
         # text report
-        self.drawTextReport(report, scale)
+        drawTextReport(report, scale)
 
-    def drawMetricsSymmetry(self, data, scale):
-        left = data["left"]
-        right = data["right"]
-        width = data["width"]
-        message = data["message"]
-        y = -20
-        x = left + (((width - right) - left) / 2.0)
-        path = NSBezierPath.bezierPath()
-        path.moveToPoint_((min((0, left)), y))
-        path.lineToPoint_((max((width, width - right)), y))
-        path.moveToPoint_((0, 0))
-        path.lineToPoint_((0, y * 2))
-        path.moveToPoint_((left, 0))
-        path.lineToPoint_((left, y * 2))
-        path.moveToPoint_((width - right, 0))
-        path.lineToPoint_((width - right, y * 2))
-        path.moveToPoint_((width, 0))
-        path.lineToPoint_((width, y * 2))
-        path.setLineWidth_(scale)
-        metricsSymmetryColor.set()
-        path.stroke()
-        drawString((x, y), message, 10, scale, metricsSymmetryColor, backgroundColor=NSColor.whiteColor())
-
-    def drawSmallContours(self, contours, scale):
-        smallContourColor.set()
-        for contourIndex, box in contours.items():
-            xMin, yMin, xMax, yMax = box
-            w = xMax - xMin
-            h = yMax - yMin
-            r = ((xMin, yMin), (w, h))
-            r = NSInsetRect(r, -5 * scale, -5 * scale)
-            NSRectFillUsingOperation(r, NSCompositeSourceOver)
-            x = xMin + (w / 2)
-            y = yMin - (10 * scale)
-            drawString((x, y), "Tiny Contour", 10, scale, smallContourColor)
-
-    def drawOpenContours(self, contours, scale):
-        openContourColor.set()
-        for contourIndex, points in contours.items():
-            start, end = points
-            mid = calcMid(start, end)
-            path = NSBezierPath.bezierPath()
-            path.moveToPoint_(start)
-            path.lineToPoint_(end)
-            path.setLineWidth_(scale)
-            path.setLineDash_count_phase_([4], 1, 0.0)
-            path.stroke()
-            drawString(mid, "Open Contour", 10, scale, openContourColor, backgroundColor=NSColor.whiteColor())
-
-    def drawDuplicateContours(self, contours, scale):
-        glyph = CurrentGlyph()
-        font = glyph.getParent()
-        duplicateContourColor.set()
-        for contourIndex in contours:
-            contour = glyph[contourIndex]
-            pen = CocoaPen(font)
-            contour.draw(pen)
-            path = pen.path
-            path.fill()
-            path.setLineWidth_(5 * scale)
-            path.stroke()
-            xMin, yMin, xMax, yMax = contour.box
-            mid = calcMid((xMin, yMin), (xMax, yMin))
-            x, y = mid
-            drawString((x, y - (10 * scale)), "Duplicate Contour", 10, scale, duplicateContourColor)
-
-    def drawExtremePoints(self, contours, scale):
-        path = NSBezierPath.bezierPath()
-        d = 16 * scale
-        h = d / 2.0
-        o = 3 * scale
-        for contourIndex, points in contours.items():
-            for (x, y) in points:
-                r = ((x - h, y - h), (d, d))
-                path.appendBezierPathWithOvalInRect_(r)
-                path.moveToPoint_((x - h + o, y))
-                path.lineToPoint_((x + h - o, y))
-                path.moveToPoint_((x, y - h + o))
-                path.lineToPoint_((x, y + h - o))
-                drawString((x, y - (16 * scale)), "Insert Point", 10, scale, missingExtremaColor)
-        missingExtremaColor.set()
-        path.setLineWidth_(scale)
-        path.stroke()
-
-    def drawStrayPoints(self, contours, scale):
-        path = NSBezierPath.bezierPath()
-        d = 20 * scale
-        h = d / 2.0
-        for contourIndex, (x, y) in contours.items():
-            r = ((x - h, y - h), (d, d))
-            path.appendBezierPathWithOvalInRect_(r)
-            drawString((x, y - d), "Stray Point", 10, scale, strayPointColor)
-        strayPointColor.set()
-        path.setLineWidth_(scale)
-        path.stroke()
-
-    def drawComplexCurves(self, contours, scale):
-        impliedSCurveColor.set()
-        for contourIndex, segments in contours.items():
-            for segment in segments:
-                pt0, pt1, pt2, pt3 = segment
-                path = NSBezierPath.bezierPath()
-                path.moveToPoint_(pt0)
-                path.curveToPoint_controlPoint1_controlPoint2_(pt3, pt1, pt2)
-                path.setLineWidth_(3 * scale)
-                path.setLineCapStyle_(NSRoundLineCapStyle)
-                path.stroke()
-                mid = splitCubicAtT(pt0, pt1, pt2, pt3, 0.5)[0][-1]
-                drawString(mid, "Complex Path", 10, scale, impliedSCurveColor, backgroundColor=NSColor.whiteColor())
-
-    def drawCrossedHandles(self, contours, scale):
-        d = 10 * scale
-        h = d / 2.0
-        crossedHandlesColor.set()
-        for contourIndex, segments in contours.items():
-            for segment in segments:
-                pt1, pt2, pt3, pt4 = segment["points"]
-                pt5 = segment["intersection"]
-                path1 = NSBezierPath.bezierPath()
-                path2 = NSBezierPath.bezierPath()
-                path1.moveToPoint_(pt1)
-                path1.lineToPoint_(pt2)
-                path1.moveToPoint_(pt3)
-                path1.lineToPoint_(pt4)
-                x, y = pt5
-                r = ((x - h, y - h), (d, d))
-                path2.appendBezierPathWithOvalInRect_(r)
-                path1.setLineWidth_(3 * scale)
-                path1.setLineCapStyle_(NSRoundLineCapStyle)
-                path1.stroke()
-                path2.fill()
-                drawString((x, y - (12 * scale)), "Crossed Handles", 10, scale, crossedHandlesColor, backgroundColor=NSColor.whiteColor())
-
-    def drawStraightLines(self, contours, scale):
-        straightLineColor.set()
-        for contourIndex, segments in contours.items():
-            for segment in segments:
-                xs = []
-                ys = []
-                for (x, y) in segment:
-                    xs.append(x)
-                    ys.append(y)
-                xMin = min(xs)
-                xMax = max(xs)
-                yMin = min(ys)
-                yMax = max(ys)
-                w = xMax - xMin
-                h = yMax - yMin
-                r = ((xMin, yMin), (w, h))
-                r = NSInsetRect(r, -2 * scale, -2 * scale)
-                NSRectFillUsingOperation(r, NSCompositeSourceOver)
-
-    def drawUnnecessaryPoints(self, contours, scale):
-        path = NSBezierPath.bezierPath()
-        for contourIndex, points in contours.items():
-            for pt in points:
-                drawDeleteMark(pt, scale, path)
-                x, y = pt
-                drawString((x, y - (10 * scale)), "Unnecessary Point", 10, scale, unnecessaryPointsColor)
-        unnecessaryPointsColor.set()
-        path.setLineWidth_(2 * scale)
-        path.stroke()
-
-    def drawUnnecessaryHandles(self, contours, scale):
-        unnecessaryHandlesColor.set()
-        d = 10 * scale
-        h = d / 2.0
-        for contourIndex, points in contours.items():
-            for bcp1, bcp2 in points:
-                # line
-                path1 = NSBezierPath.bezierPath()
-                path1.moveToPoint_(bcp1)
-                path1.lineToPoint_(bcp2)
-                path1.setLineWidth_(3 * scale)
-                path1.stroke()
-                # dots
-                path2 = NSBezierPath.bezierPath()
-                for (x, y) in (bcp1, bcp2):
-                    r = ((x - h, y - h), (d, d))
-                    path2.appendBezierPathWithOvalInRect_(r)
-                path2.setLineWidth_(scale)
-                path2.stroke()
-                # text
-                mid = calcMid(bcp1, bcp2)
-                drawString(mid, "Unnecessary Handles", 10, scale, unnecessaryHandlesColor, backgroundColor=NSColor.whiteColor())
-
-    def drawOverlappingPoints(self, contours, scale):
-        path = NSBezierPath.bezierPath()
-        d = 10 * scale
-        h = d / 2.0
-        q = h / 2.0
-        for contourIndex, points in contours.items():
-            for (x, y) in points:
-                r = ((x - d + q, y - q), (d, d))
-                path.appendBezierPathWithOvalInRect_(r)
-                r = ((x - q, y - d + q), (d, d))
-                path.appendBezierPathWithOvalInRect_(r)
-                drawString((x, y - (12 * scale)), "Overlapping Points", 10, scale, overlappingPointsColor)
-        overlappingPointsColor.set()
-        path.fill()
-
-    def drawPointsNearVericalMetrics(self, verticalMetrics, scale):
-        path = NSBezierPath.bezierPath()
-        for verticalMetric, points in verticalMetrics.items():
-            xMin = None
-            xMax = None
-            for (x, y) in points:
-                path.moveToPoint_((x, y))
-                path.lineToPoint_((x, verticalMetric))
-                if xMin is None:
-                    xMin = x
-                elif xMin > x:
-                    xMin = x
-                if xMax is None:
-                    xMax = x
-                elif xMax < x:
-                    xMax = x
-            path.moveToPoint_((xMin, verticalMetric))
-            path.lineToPoint_((xMax, verticalMetric))
-        pointsNearVerticalMetricsColor.set()
-        path.setLineWidth_(4 * scale)
-        path.stroke()
-
-    def drawUnsmoothSmooths(self, contours, scale):
-        unsmoothSmoothsColor.set()
-        for contourIndex, points in contours.items():
-            path = NSBezierPath.bezierPath()
-            for pt1, pt2, pt3 in points:
-                path.moveToPoint_(pt1)
-                path.lineToPoint_(pt3)
-            path.setLineWidth_(2 * scale)
-            path.stroke()
-            x, y = pt2
-            drawString((x, y - (10 * scale)), "Unsmooth Smooth", 10, scale, unsmoothSmoothsColor, backgroundColor=NSColor.whiteColor())
-
-    def drawTextReport(self, report, scale):
-        text = []
-        r = report.get("unicodeValue")
-        if r:
-            text += r
-        r = report.get("contourCount")
-        if r:
-            text += r
-        if text:
-            text = "\n".join(text)
-            x = 50
-            y = 50
-            drawString((x, y), text, 16, scale, textReportColor, alignment="left")
 
 # Utilities
 
@@ -530,7 +282,7 @@ def _testList():
         dict(key="unnecessaryPoints",         description="One or more unnecessary points are present in lines.",                    function=testForUnnecessaryPoints),
         dict(key="unnecessaryHandles",        description="One or more curves has unnecessary handles.",                             function=testForUnnecessaryHandles),
         dict(key="overlappingPoints",         description="Two or more points are overlapping.",                                     function=testForOverlappingPoints),
-        dict(key="pointsNearVerticalMetrics", description="Two or more points are just off a vertical metric.",                      function=testForPointsNearVerticalMetrics),
+        dict(key="pointsNearVerticalMetrics", description="Two or more points are just off a vertical metric.",                      function=testForSegmentsNearVerticalMetrics),
         dict(key="complexCurves",             description="One or more curves is suspiciously complex.",                             function=testForComplexCurves),
         dict(key="crossedHandles",            description="One or more curves contain crossed handles.",                             function=testForCrossedHandles),
         dict(key="straightLines",             description="One or more lines is a few units from being horizontal or vertical.",     function=testForStraightLines),
@@ -603,7 +355,23 @@ def GlyphNannyReportFactory(glyph, font, testStates=None):
     d = tupleToDict(testStates)
     return getGlyphReport(font, glyph, d)
 
-# Glyph
+# -----------
+# Glyph Level
+# -----------
+
+def drawTextReport(report, scale):
+    text = []
+    r = report.get("unicodeValue")
+    if r:
+        text += r
+    r = report.get("contourCount")
+    if r:
+        text += r
+    if text:
+        text = "\n".join(text)
+        x = 50
+        y = 50
+        drawString((x, y), text, 16, scale, textReportColor, alignment="left")
 
 uniNamePattern = re.compile(
     "uni"
@@ -656,7 +424,32 @@ def testContourCount(glyph):
         report.append("This glyph has a unusally high number of overlapping contours.")
     return report
 
-# Metrics
+# -------------
+# Metrics Level
+# -------------
+
+def drawMetricsSymmetry(data, scale):
+    left = data["left"]
+    right = data["right"]
+    width = data["width"]
+    message = data["message"]
+    y = -20
+    x = left + (((width - right) - left) / 2.0)
+    path = NSBezierPath.bezierPath()
+    path.moveToPoint_((min((0, left)), y))
+    path.lineToPoint_((max((width, width - right)), y))
+    path.moveToPoint_((0, 0))
+    path.lineToPoint_((0, y * 2))
+    path.moveToPoint_((left, 0))
+    path.lineToPoint_((left, y * 2))
+    path.moveToPoint_((width - right, 0))
+    path.lineToPoint_((width - right, y * 2))
+    path.moveToPoint_((width, 0))
+    path.lineToPoint_((width, y * 2))
+    path.setLineWidth_(scale)
+    metricsSymmetryColor.set()
+    path.stroke()
+    drawString((x, y), message, 10, scale, metricsSymmetryColor, backgroundColor=NSColor.whiteColor())
 
 def testMetricsSymmetry(glyph):
     """
@@ -674,8 +467,11 @@ def testMetricsSymmetry(glyph):
         return data
     return None
 
+# -------------
+# Contour Level
+# -------------
 
-# Contours
+# Duplicate Contours
 
 def testDuplicateContours(glyph):
     """
@@ -697,6 +493,24 @@ def testDuplicateContours(glyph):
             duplicateContours.append(indexes[0])
     return duplicateContours
 
+def drawDuplicateContours(contours, scale):
+    glyph = CurrentGlyph()
+    font = glyph.getParent()
+    duplicateContourColor.set()
+    for contourIndex in contours:
+        contour = glyph[contourIndex]
+        pen = CocoaPen(font)
+        contour.draw(pen)
+        path = pen.path
+        path.setLineWidth_(5 * scale)
+        path.stroke()
+        xMin, yMin, xMax, yMax = contour.box
+        mid = calcMid((xMin, yMin), (xMax, yMin))
+        x, y = mid
+        drawString((x, y - (10 * scale)), "Duplicate Contour", 10, scale, duplicateContourColor)
+
+# Small Contours
+
 def testForSmallContours(glyph):
     """
     Contours should not have an area less than or equal to 4 units.
@@ -714,6 +528,21 @@ def testForSmallContours(glyph):
             smallContours[index] = contour.box
     return smallContours
 
+def drawSmallContours(contours, scale):
+    smallContourColor.set()
+    for contourIndex, box in contours.items():
+        xMin, yMin, xMax, yMax = box
+        w = xMax - xMin
+        h = yMax - yMin
+        r = ((xMin, yMin), (w, h))
+        r = NSInsetRect(r, -5 * scale, -5 * scale)
+        NSRectFillUsingOperation(r, NSCompositeSourceOver)
+        x = xMin + (w / 2)
+        y = yMin - (10 * scale)
+        drawString((x, y), "Tiny Contour", 10, scale, smallContourColor)
+
+# Open Contours
+
 def testForOpenContours(glyph):
     """
     Contours should be closed.
@@ -729,6 +558,21 @@ def testForOpenContours(glyph):
         if start != end:
             openContours[index] = (start, end)
     return openContours
+
+def drawOpenContours(contours, scale):
+    openContourColor.set()
+    for contourIndex, points in contours.items():
+        start, end = points
+        mid = calcMid(start, end)
+        path = NSBezierPath.bezierPath()
+        path.moveToPoint_(start)
+        path.lineToPoint_(end)
+        path.setLineWidth_(scale)
+        path.setLineDash_count_phase_([4], 1, 0.0)
+        path.stroke()
+        drawString(mid, "Open Contour", 10, scale, openContourColor, backgroundColor=NSColor.whiteColor())
+
+# Extreme Points
 
 def testForExtremePoints(glyph):
     """
@@ -746,7 +590,27 @@ def testForExtremePoints(glyph):
             pointsAtExtrema[index] = testPoints - points
     return pointsAtExtrema
 
-# Segments
+def drawExtremePoints(contours, scale):
+    path = NSBezierPath.bezierPath()
+    d = 16 * scale
+    h = d / 2.0
+    o = 3 * scale
+    for contourIndex, points in contours.items():
+        for (x, y) in points:
+            r = ((x - h, y - h), (d, d))
+            path.appendBezierPathWithOvalInRect_(r)
+            path.moveToPoint_((x - h + o, y))
+            path.lineToPoint_((x + h - o, y))
+            path.moveToPoint_((x, y - h + o))
+            path.lineToPoint_((x, y + h - o))
+            drawString((x, y - (16 * scale)), "Insert Point", 10, scale, missingExtremaColor)
+    missingExtremaColor.set()
+    path.setLineWidth_(scale)
+    path.stroke()
+
+# -------------
+# Segment Level
+# -------------
 
 def testForStraightLines(glyph):
     """
@@ -771,6 +635,101 @@ def testForStraightLines(glyph):
             prev = point
     return straightLines
 
+def drawStraightLines(contours, scale):
+    straightLineColor.set()
+    for contourIndex, segments in contours.items():
+        for segment in segments:
+            xs = []
+            ys = []
+            for (x, y) in segment:
+                xs.append(x)
+                ys.append(y)
+            xMin = min(xs)
+            xMax = max(xs)
+            yMin = min(ys)
+            yMax = max(ys)
+            w = xMax - xMin
+            h = yMax - yMin
+            r = ((xMin, yMin), (w, h))
+            r = NSInsetRect(r, -2 * scale, -2 * scale)
+            NSRectFillUsingOperation(r, NSCompositeSourceOver)
+
+# Segments Near Vertical Metrics
+
+def testForSegmentsNearVerticalMetrics(glyph):
+    """
+    Points shouldn't be just off a vertical metric.
+    """
+    font = glyph.getParent()
+    verticalMetrics = {
+        0 : set()
+    }
+    for attr in "descender xHeight capHeight ascender".split(" "):
+        value = getattr(font.info, attr)
+        verticalMetrics[value] = set()
+    for contour in glyph:
+        sequence = None
+        # test the last segment to start the sequence
+        pt = _unwrapPoint(contour[-1].onCurve)
+        near, currentMetric = _testPointNearVerticalMetrics(pt, verticalMetrics)
+        if near:
+            sequence = set()
+        # test them all
+        for segment in contour:
+            pt = _unwrapPoint(segment.onCurve)
+            near, metric = _testPointNearVerticalMetrics(pt, verticalMetrics)
+            # hit on the same metric as the previous point
+            if near and sequence is not None and metric == currentMetric:
+                sequence.add(pt)
+            else:
+                # existing sequence, note it if needed, clear it
+                if sequence:
+                    if len(sequence) > 1:
+                        verticalMetrics[currentMetric] |= sequence
+                sequence = None
+                currentMetric = None
+                # hit, make a new sequence
+                if near:
+                    sequence = set()
+                    currentMetric = metric
+                    sequence.add(pt)
+    for verticalMetric, points in verticalMetrics.items():
+        if not points:
+            del verticalMetrics[verticalMetric]
+    return verticalMetrics
+
+def _testPointNearVerticalMetrics(pt, verticalMetrics):
+    y = pt[1]
+    for v in verticalMetrics:
+        d = abs(v - y)
+        if d != 0 and d <= 5:
+            return True, v
+    return False, None
+
+def drawSegmentsNearVericalMetrics(verticalMetrics, scale):
+    path = NSBezierPath.bezierPath()
+    for verticalMetric, points in verticalMetrics.items():
+        xMin = None
+        xMax = None
+        for (x, y) in points:
+            path.moveToPoint_((x, y))
+            path.lineToPoint_((x, verticalMetric))
+            if xMin is None:
+                xMin = x
+            elif xMin > x:
+                xMin = x
+            if xMax is None:
+                xMax = x
+            elif xMax < x:
+                xMax = x
+        path.moveToPoint_((xMin, verticalMetric))
+        path.lineToPoint_((xMax, verticalMetric))
+    pointsNearVerticalMetricsColor.set()
+    path.setLineWidth_(4 * scale)
+    path.stroke()
+
+# Unsmooth Smooths
+
 def testUnsmoothSmooths(glyph):
     """
     Smooth segments should have bcps in the right places.
@@ -793,6 +752,20 @@ def testUnsmoothSmooths(glyph):
             prev = segment
     return unsmoothSmooths
 
+def drawUnsmoothSmooths(contours, scale):
+    unsmoothSmoothsColor.set()
+    for contourIndex, points in contours.items():
+        path = NSBezierPath.bezierPath()
+        for pt1, pt2, pt3 in points:
+            path.moveToPoint_(pt1)
+            path.lineToPoint_(pt3)
+        path.setLineWidth_(2 * scale)
+        path.stroke()
+        x, y = pt2
+        drawString((x, y - (10 * scale)), "Unsmooth Smooth", 10, scale, unsmoothSmoothsColor, backgroundColor=NSColor.whiteColor())
+
+# Complex Curves
+
 def testForComplexCurves(glyph):
     """
     S curves are suspicious.
@@ -813,6 +786,22 @@ def testForComplexCurves(glyph):
                     impliedS[index].append((prev, pt1, pt2, pt3))
             prev = _unwrapPoint(segment.onCurve)
     return impliedS
+
+def drawComplexCurves(contours, scale):
+    impliedSCurveColor.set()
+    for contourIndex, segments in contours.items():
+        for segment in segments:
+            pt0, pt1, pt2, pt3 = segment
+            path = NSBezierPath.bezierPath()
+            path.moveToPoint_(pt0)
+            path.curveToPoint_controlPoint1_controlPoint2_(pt3, pt1, pt2)
+            path.setLineWidth_(3 * scale)
+            path.setLineCapStyle_(NSRoundLineCapStyle)
+            path.stroke()
+            mid = splitCubicAtT(pt0, pt1, pt2, pt3, 0.5)[0][-1]
+            drawString(mid, "Complex Curve", 10, scale, impliedSCurveColor, backgroundColor=NSColor.whiteColor())
+
+# Crossed Handles
 
 def testForCrossedHandles(glyph):
     """
@@ -868,6 +857,31 @@ def testForCrossedHandles(glyph):
             pt0 = pt3
     return crossedHandles
 
+def drawCrossedHandles(contours, scale):
+    d = 10 * scale
+    h = d / 2.0
+    crossedHandlesColor.set()
+    for contourIndex, segments in contours.items():
+        for segment in segments:
+            pt1, pt2, pt3, pt4 = segment["points"]
+            pt5 = segment["intersection"]
+            path1 = NSBezierPath.bezierPath()
+            path2 = NSBezierPath.bezierPath()
+            path1.moveToPoint_(pt1)
+            path1.lineToPoint_(pt2)
+            path1.moveToPoint_(pt3)
+            path1.lineToPoint_(pt4)
+            x, y = pt5
+            r = ((x - h, y - h), (d, d))
+            path2.appendBezierPathWithOvalInRect_(r)
+            path1.setLineWidth_(3 * scale)
+            path1.setLineCapStyle_(NSRoundLineCapStyle)
+            path1.stroke()
+            path2.fill()
+            drawString((x, y - (12 * scale)), "Crossed Handles", 10, scale, crossedHandlesColor, backgroundColor=NSColor.whiteColor())
+
+# Unnecessary Handles
+
 def testForUnnecessaryHandles(glyph):
     """
     Handles shouldn't be used if they aren't doing anything.
@@ -893,7 +907,34 @@ def testForUnnecessaryHandles(glyph):
             prevPoint = segment.onCurve
     return unnecessaryHandles
 
-# Points
+def drawUnnecessaryHandles(contours, scale):
+    unnecessaryHandlesColor.set()
+    d = 10 * scale
+    h = d / 2.0
+    for contourIndex, points in contours.items():
+        for bcp1, bcp2 in points:
+            # line
+            path1 = NSBezierPath.bezierPath()
+            path1.moveToPoint_(bcp1)
+            path1.lineToPoint_(bcp2)
+            path1.setLineWidth_(3 * scale)
+            path1.stroke()
+            # dots
+            path2 = NSBezierPath.bezierPath()
+            for (x, y) in (bcp1, bcp2):
+                r = ((x - h, y - h), (d, d))
+                path2.appendBezierPathWithOvalInRect_(r)
+            path2.setLineWidth_(scale)
+            path2.stroke()
+            # text
+            mid = calcMid(bcp1, bcp2)
+            drawString(mid, "Unnecessary Handles", 10, scale, unnecessaryHandlesColor, backgroundColor=NSColor.whiteColor())
+
+# -----------
+# Point Level
+# -----------
+
+# Stray Points
 
 def testForStrayPoints(glyph):
     """
@@ -906,6 +947,20 @@ def testForStrayPoints(glyph):
             pt = (pt.x, pt.y)
             strayPoints[index] = pt
     return strayPoints
+
+def drawStrayPoints(contours, scale):
+    path = NSBezierPath.bezierPath()
+    d = 20 * scale
+    h = d / 2.0
+    for contourIndex, (x, y) in contours.items():
+        r = ((x - h, y - h), (d, d))
+        path.appendBezierPathWithOvalInRect_(r)
+        drawString((x, y - d), "Stray Point", 10, scale, strayPointColor)
+    strayPointColor.set()
+    path.setLineWidth_(scale)
+    path.stroke()
+
+# Unnecessary Points
 
 def testForUnnecessaryPoints(glyph):
     """
@@ -926,6 +981,19 @@ def testForUnnecessaryPoints(glyph):
                         unnecessaryPoints[index].append(_unwrapPoint(segment.onCurve))
     return unnecessaryPoints
 
+def drawUnnecessaryPoints(contours, scale):
+    path = NSBezierPath.bezierPath()
+    for contourIndex, points in contours.items():
+        for pt in points:
+            drawDeleteMark(pt, scale, path)
+            x, y = pt
+            drawString((x, y - (10 * scale)), "Unnecessary Point", 10, scale, unnecessaryPointsColor)
+    unnecessaryPointsColor.set()
+    path.setLineWidth_(2 * scale)
+    path.stroke()
+
+# Overlapping Points
+
 def testForOverlappingPoints(glyph):
     """
     Consequtive points should not overlap.
@@ -944,57 +1012,24 @@ def testForOverlappingPoints(glyph):
             prev = point
     return overlappingPoints
 
-def testForPointsNearVerticalMetrics(glyph):
-    """
-    Points shouldn't be just off a vertical metric.
-    """
-    font = glyph.getParent()
-    verticalMetrics = {
-        0 : set()
-    }
-    for attr in "descender xHeight capHeight ascender".split(" "):
-        value = getattr(font.info, attr)
-        verticalMetrics[value] = set()
-    for contour in glyph:
-        sequence = None
-        # test the last segment to start the sequence
-        pt = _unwrapPoint(contour[-1].onCurve)
-        near, currentMetric = _testPointNearVerticalMetrics(pt, verticalMetrics)
-        if near:
-            sequence = set()
-        # test them all
-        for segment in contour:
-            pt = _unwrapPoint(segment.onCurve)
-            near, metric = _testPointNearVerticalMetrics(pt, verticalMetrics)
-            # hit on the same metric as the previous point
-            if near and sequence is not None and metric == currentMetric:
-                sequence.add(pt)
-            else:
-                # existing sequence, note it if needed, clear it
-                if sequence:
-                    if len(sequence) > 1:
-                        verticalMetrics[currentMetric] |= sequence
-                sequence = None
-                currentMetric = None
-                # hit, make a new sequence
-                if near:
-                    sequence = set()
-                    currentMetric = metric
-                    sequence.add(pt)
-    for verticalMetric, points in verticalMetrics.items():
-        if not points:
-            del verticalMetrics[verticalMetric]
-    return verticalMetrics
+def drawOverlappingPoints(contours, scale):
+    path = NSBezierPath.bezierPath()
+    d = 10 * scale
+    h = d / 2.0
+    q = h / 2.0
+    for contourIndex, points in contours.items():
+        for (x, y) in points:
+            r = ((x - d + q, y - q), (d, d))
+            path.appendBezierPathWithOvalInRect_(r)
+            r = ((x - q, y - d + q), (d, d))
+            path.appendBezierPathWithOvalInRect_(r)
+            drawString((x, y - (12 * scale)), "Overlapping Points", 10, scale, overlappingPointsColor)
+    overlappingPointsColor.set()
+    path.fill()
 
-def _testPointNearVerticalMetrics(pt, verticalMetrics):
-    y = pt[1]
-    for v in verticalMetrics:
-        d = abs(v - y)
-        if d != 0 and d <= 5:
-            return True, v
-    return False, None
-
+# ---------
 # Utilities
+# ---------
 
 def _getOnCurves(contour):
     points = set()
