@@ -29,5 +29,9 @@
 	<real>1408123037.3503079</real>
 	<key>version</key>
 	<string>0.2</string>
+	<key>repository</key>
+	<string>typesupply/glyph-nanny</string>
+	<key>extensionPath</key>
+	<string>lib/glyphNanny.roboFontExt</string>
 </dict>
 </plist>
