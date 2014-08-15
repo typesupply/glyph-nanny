@@ -1,3 +1,4 @@
+import os
 import re
 import math
 from fontTools.misc.bezierTools import splitCubicAtT
@@ -8,7 +9,7 @@ from AppKit import *
 import vanilla
 from vanilla import dialogs
 from defconAppKit.windows.baseWindow import BaseWindowController
-from mojo.roboFont import CurrentGlyph
+from mojo.roboFont import CurrentFont, AllFonts
 from mojo.roboFont import version as roboFontVersion
 from mojo.UI import UpdateCurrentGlyphView
 from mojo.events import addObserver, removeObserver
@@ -109,30 +110,7 @@ class GlyphNannyPrefsWindow(object):
         self.w.displayLiveReportRadioGroup.set(not state)
 
         # test states
-        groupTitles = ["Glyph Tests", "Metrics Tests", "Contour Tests", "Segment Tests", "Point Tests"]
-        self.w.testStateBox = vanilla.Box((15, 60, -15, 190))
-        tabs = self.w.testStateBox.testStateTabs = vanilla.Tabs((0, 5, 0, 0), groupTitles, showTabs=False)
-        groups = [
-            ("glyph", tabs[0]),
-            ("metrics", tabs[1]),
-            ("contour", tabs[2]),
-            ("segment", tabs[3]),
-            ("point", tabs[4]),
-        ]
-        for group, tab in groups:
-            top = 15
-            for identifier in reportOrder:
-               for testIdentifier, testData in testRegistry.items():
-                   if testIdentifier != identifier:
-                       continue
-                   if testData["level"] != group:
-                       continue
-                   state = getExtensionDefault(defaultKeyTestStates)[identifier]
-                   control = vanilla.CheckBox((15, top, -15, 22), testData["title"], value=state, callback=self.testStateCheckBoxCallback)
-                   top += 25
-                   self.testStateControlToIdentifier[control] = identifier
-                   setattr(tab, "testStateCheckBox_" + identifier, control)
-        self.w.testStateTabSelector = vanilla.PopUpButton((72, 50, 120, 20), groupTitles, callback=self.testStateTabSelectorCallback)
+        _buildGlyphTestTabs(self, 50)
 
         # colors
         colors = [
@@ -174,6 +152,84 @@ class GlyphNannyPrefsWindow(object):
         key = self.colorControlToKey[sender]
         setExtensionDefaultColor(key, color)
         UpdateCurrentGlyphView()
+
+
+def _buildGlyphTestTabs(controller, viewTop):
+    groupTitles = ["Glyph Tests", "Metrics Tests", "Contour Tests", "Segment Tests", "Point Tests"]
+    controller.w.testStateBox = vanilla.Box((15, viewTop + 10, -15, 190))
+    tabs = controller.w.testStateBox.testStateTabs = vanilla.Tabs((0, 5, 0, 0), groupTitles, showTabs=False)
+    groups = [
+        ("glyph", tabs[0]),
+        ("metrics", tabs[1]),
+        ("contour", tabs[2]),
+        ("segment", tabs[3]),
+        ("point", tabs[4]),
+    ]
+    for group, tab in groups:
+        top = 15
+        for identifier in reportOrder:
+           for testIdentifier, testData in testRegistry.items():
+               if testIdentifier != identifier:
+                   continue
+               if testData["level"] != group:
+                   continue
+               state = getExtensionDefault(defaultKeyTestStates)[identifier]
+               control = vanilla.CheckBox((15, top, -15, 22), testData["title"], value=state, callback=controller.testStateCheckBoxCallback)
+               top += 25
+               controller.testStateControlToIdentifier[control] = identifier
+               setattr(tab, "testStateCheckBox_" + identifier, control)
+    controller.w.testStateTabSelector = vanilla.PopUpButton((72, viewTop, 120, 20), groupTitles, callback=controller.testStateTabSelectorCallback)
+
+
+# ----------------
+# Test Font Window
+# ----------------
+
+class GlyphNannyTestFontsWindow(BaseWindowController):
+
+    def __init__(self):
+        self.testStateControlToIdentifier = {}
+        self.w = vanilla.Window((264, 295), "Glyph Nanny")
+        # test states
+        _buildGlyphTestTabs(self, 15)
+        # test buttons
+        self.w.testCurrentButton = vanilla.Button((15, 230, -15, 20), "Test Current Font", callback=self.testCurrentButtonCallback)
+        self.w.testAllButton = vanilla.Button((15, 260, -15, 20), "Test All Open Fonts", callback=self.testAllButtonCallback)
+
+        self.w.open()
+
+    def testStateTabSelectorCallback(self, sender):
+        tab = sender.get()
+        self.w.testStateBox.testStateTabs.set(tab)
+
+    def testStateCheckBoxCallback(self, sender):
+        pass
+
+    def getTestStates(self):
+        testStates = {}
+        for control, identifier in self.testStateControlToIdentifier.items():
+            testStates[identifier] = control.get()
+        return testStates
+
+    def testCurrentButtonCallback(self, sender):
+        font = CurrentFont()
+        if font is None:
+            dialogs.message("There is no font to test.", "Open a font and try again.")
+            return
+        testStates = self.getTestStates()
+        results = getFontReport(font, testStates, format=True)
+        print results
+
+    def testAllButtonCallback(self, sender):
+        fonts = AllFonts()
+        if not fonts:
+            dialogs.message("There are no fonts to test.", "Open a font and try again.")
+            return
+        testStates = self.getTestStates()
+        for font in fonts:
+            results = getFontReport(font, testStates, format=True)
+            print results
+            print
 
 
 # ------
@@ -276,7 +332,13 @@ def getFontReport(font, testStates, format=False):
         report = getGlyphReport(font, glyph, testStates)
         results[name] = report
     if format:
-        all = []
+        path = font.path
+        if path is None:
+            path = "Unsaved Font"
+        else:
+            path = os.path.basename(path)
+        path = ("-" * len(path)) + "\n" + path + "\n" + ("-" * len(path))
+        all = [path]
         for name in font.glyphOrder:
             report = results[name]
             l = []
@@ -1494,6 +1556,7 @@ if __name__ == "__main__":
                 unregisterGlyphNannyObserver(observer)
     # register it
     registerGlyphNannyObserver(glyphNannyObserver)
-    # if debugging, show the prefs window
+    # if debugging, show the windows
     if DEBUG:
         GlyphNannyPrefsWindow()
+        GlyphNannyTestFontsWindow()

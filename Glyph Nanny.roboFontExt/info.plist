@@ -12,6 +12,14 @@
 			<key>shortKey</key>
 			<string></string>
 		</dict>
+		<dict>
+			<key>path</key>
+			<string>glyphNannyShowFontTester.py</string>
+			<key>preferredName</key>
+			<string>Test Fonts</string>
+			<key>shortKey</key>
+			<string></string>
+		</dict>
 	</array>
 	<key>developer</key>
 	<string>http://tools.typesupply.com</string>
