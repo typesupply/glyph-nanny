@@ -12,131 +12,71 @@ from mojo.roboFont import CurrentGlyph
 from mojo.roboFont import version as roboFontVersion
 from mojo.UI import UpdateCurrentGlyphView
 from mojo.events import addObserver, removeObserver
+from mojo.extensions import getExtensionDefault, setExtensionDefault
 
-DEBUG = False
+DEBUG = True
 
-# -------
-# Palette
-# -------
+# --------
+# Defaults
+# --------
 
-class GlyphNannyControls(BaseWindowController):
+defaultKeyStub = "com.typesupply.GlyphNanny."
+defaultKeyObserverVisibility = defaultKeyStub + "displayReportInGlyphView"
+defaultKeyTestStates = defaultKeyStub + "testStates"
 
-    def __init__(self):
-        self.keysToControls = {}
+def registerGlyphNannyDefaults():
+    defaults = {
+        defaultKeyObserverVisibility : False,
+        defaultKeyTestStates : {}
+    }
+    for key in testRegistry.keys():
+        defaults[defaultKeyTestStates][key] = True
 
-        self.w = vanilla.FloatingWindow((185, 415), "Glyph Nanny")
+    try:
+        from mojo.extensions import registerExtensionsDefaults
+    except ImportError:
+        def registerExtensionsDefaults(d):
+            for k, v in d.items():
+                e = getExtensionDefault(k, fallback="__fallback__")
+                if e == "__fallback__":
+                    setExtensionDefault(k, v)
 
-        self.top = 10
-
-        controls = [
-            dict(key="unicodeValue", title="Unicode Value"),
-            dict(key="contourCount", title="Contour Count")
-        ]
-        self.buildSettingsGroup("glyphChecks", "Glyph Checks", controls)
-
-        controls = [
-            dict(key="strayPoints", title="Stray Points"),
-            dict(key="smallContours", title="Small Contours"),
-            dict(key="openContours", title="Open Contours"),
-            dict(key="duplicateContours", title="Duplicate Contours"),
-            dict(key="extremePoints", title="Extreme Points"),
-            dict(key="unnecessaryPoints", title="Unnecessary Points"),
-            dict(key="unnecessaryHandles", title="Unnecessary Handles"),
-            dict(key="overlappingPoints", title="Overlapping Points"),
-            dict(key="pointsNearVerticalMetrics", title="Points Near Vertical Metrics"),
-            dict(key="complexCurves", title="Complex Curves"),
-            dict(key="crossedHandles", title="Crossed Handles"),
-            dict(key="straightLines", title="Straight Lines"),
-            dict(key="unsmoothSmooths", title="Unsmooth Smooths"),
-        ]
-        self.buildSettingsGroup("outlineChecks", "Outline Checks", controls)
-
-        self.w.fontLine = vanilla.HorizontalLine((10, self.top, -10, 1))
-        self.top += 10
-        self.w.testFontButton = vanilla.Button((10, self.top, -10, 17), "Test Entire Font", sizeStyle="small", callback=self.testFontButtonCallback)
-
-        self.setUpBaseWindowBehavior()
-        self.startObserver()
-
-        self.settingsCallback(None)
-
-        self.w.open()
-
-    def windowCloseCallback(self, sender):
-        self.stopObserver()
-
-    def startObserver(self):
-        self.observer = GlyphNannyObserver()
-        addObserver(self.observer, "drawReport", "drawBackground")
-        addObserver(self.observer, "drawReport", "drawInactive")
-
-    def stopObserver(self):
-        removeObserver(self.observer, "drawBackground")
-        removeObserver(self.observer, "drawInactive")
-        self.observer = None
-
-    def buildSettingsGroup(self, groupID, title, items):
-        tb = vanilla.TextBox((10, self.top, -10, 14), title, sizeStyle="small")
-        l = vanilla.HorizontalLine((10, self.top + 18, -10, 1))
-        setattr(self.w, groupID + "Title", tb)
-        setattr(self.w, groupID + "Line", l)
-        self.top += 24
-        for item in items:
-            key = item["key"]
-            attr = key + "CheckBox"
-            title = item["title"]
-            default = item.get("default", True)
-            cb = vanilla.CheckBox((10, self.top, -10, 18), title, value=default, sizeStyle="small", callback=self.settingsCallback)
-            setattr(self.w, attr, cb)
-            self.keysToControls[key] = cb
-            self.top += 20
-        self.top += 10
-
-    def _getSettings(self):
-        testStates = {}
-        for key, cb in self.keysToControls.items():
-            testStates[key] = cb.get()
-        return testStates
-
-    def settingsCallback(self, sender):
-        testStates = self._getSettings()
-        self.observer.setTestStates(testStates)
-        UpdateCurrentGlyphView()
-
-    def testFontButtonCallback(self, sender):
-        font = CurrentFont()
-        if font is None:
-            dialogs.message("There is no font to test.", "Open a font and try again.")
-            return
-        testStates = self._getSettings()
-        results = getFontReport(font, testStates, format=True)
-        print results
-
+    registerExtensionsDefaults(defaults)
 
 # ----------------
 # Drawing Observer
 # ----------------
 
+def registerGlyphNannyObserver(observer):
+    addObserver(observer, "drawReport", "drawBackground")
+    addObserver(observer, "drawReport", "drawInactive")
+
+def unregisterGlyphNannyObserver(observer):
+    removeObserver(observer, "drawBackground")
+    removeObserver(observer, "drawInactive")
+
+
 class GlyphNannyObserver(object):
 
-    def setTestStates(self, testStates):
-        # pack into a tuple for representation storage
-        t = []
-        for k, v in sorted(testStates.items()):
-            t.append((k, v))
-        self.testStates = tuple(t)
-
     def drawReport(self, info):
+        # skip if the user doesn't want to see the report
+        display = getExtensionDefault(defaultKeyObserverVisibility)
+        if not display:
+            return
+        # make sure there is something to be tested
         glyph = info["glyph"]
         if glyph is None:
             return
+        # get the report
         font = glyph.getParent()
-        scale = info["scale"]
-        if roboFontVersion <= "1.5.1":
-            d = tupleToDict(self.testStates)
-            report = getGlyphReport(font, glyph, d)
+        testStates = getExtensionDefault(defaultKeyTestStates)
+        if roboFontVersion > "1.5.1":
+            testStates = dictToTuple(testStates)
+            report = glyph.getRepresentation("com.typesupply.GlyphNanny.Report", testStates=testStates)
         else:
-            report = glyph.getRepresentation("com.typesupply.GlyphNanny.Report", testStates=self.testStates)
+            report = getGlyphReport(font, glyph, testStates)
+        # draw the report
+        scale = info["scale"]
         for key in drawingOrder:
             data = report.get(key)
             if data:
@@ -144,6 +84,27 @@ class GlyphNannyObserver(object):
                 if drawingFunction is not None:
                     drawingFunction(data, scale, glyph)
         drawTextReport(report, scale, glyph)
+
+
+# ------
+# Colors
+# ------
+
+# Informative: Blue
+def colorInform(alpha=0.3):
+    return NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 0, 0.7, alpha)
+
+# Insert Something: Green
+def colorInsert(alpha=0.75):
+    return NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 1, 0, alpha)
+
+# Remove Something: Red
+def colorRemove(alpha=0.5):
+    return NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, alpha)
+
+# Review Something: Yellow-Orange
+def colorReview(alpha=0.7):
+    return NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, alpha)
 
 
 # ------
@@ -191,6 +152,7 @@ unnecessaryPoints
 unnecessaryHandles
 overlappingPoints
 """.strip().splitlines()
+
 
 # ---------
 # Reporters
@@ -250,6 +212,12 @@ def getGlyphReport(font, glyph, testStates):
 
 # Factory
 
+def dictToTuple(d):
+    t = []
+    for k, v in sorted(d.items()):
+        t.append((k, v))
+    return tuple(t)
+
 def tupleToDict(t):
     d = {}
     for k, v in t:
@@ -287,32 +255,15 @@ def _registerFactory():
 
 testRegistry = {}
 
-def registerTest(identifier=None, description=None, testFunction=None, drawingFunction=None):
+def registerTest(identifier=None, level=None, title=None, description=None, testFunction=None, drawingFunction=None):
     testRegistry[identifier] = dict(
+        level=level,
         description=description,
+        title=title,
         testFunction=testFunction,
         drawingFunction=drawingFunction
     )
 
-# ------
-# Colors
-# ------
-
-# Informative: Blue
-def colorInform(alpha=0.3):
-    return NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 0, 0.7, alpha)
-
-# Insert Something: Green
-def colorInsert(alpha=0.75):
-    return NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 1, 0, alpha)
-
-# Remove Something: Red
-def colorRemove(alpha=0.5):
-    return NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, alpha)
-
-# Review Something: Yellow-Orange
-def colorReview(alpha=0.7):
-    return NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, alpha)
 
 # -----------------
 # Glyph Level Tests
@@ -377,6 +328,8 @@ def testUnicodeValue(glyph):
 
 registerTest(
     identifier="unicodeValue",
+    level="glyph",
+    title="Unicode Value",
     description="Unicode value may have problems.",
     testFunction=testUnicodeValue,
     drawingFunction=None
@@ -399,10 +352,13 @@ def testContourCount(glyph):
 
 registerTest(
     identifier="contourCount",
+    level="glyph",
+    title="Contour Count",
     description="There are an unusual number of contours.",
     testFunction=testContourCount,
     drawingFunction=None
 )
+
 
 # -------------------
 # Metrics Level Tests
@@ -492,6 +448,8 @@ def _drawSideBearingsReport(data, scale, textPosition, color):
 
 registerTest(
     identifier="ligatureMetrics",
+    level="metrics",
+    title="Ligature Side-Bearings",
     description="The side-bearings don't match the ligature's presumed part metrics.",
     testFunction=testLigatureMetrics,
     drawingFunction=drawLigatureMetrics
@@ -572,6 +530,8 @@ def drawComponentMetrics(data, scale, glyph):
 
 registerTest(
     identifier="componentMetrics",
+    level="metrics",
+    title="Component Side-Bearings",
     description="The side-bearings don't match the component's metrics.",
     testFunction=testComponentMetrics,
     drawingFunction=drawComponentMetrics
@@ -622,10 +582,13 @@ def drawMetricsSymmetry(data, scale, glyph):
 
 registerTest(
     identifier="metricsSymmetry",
+    level="metrics",
+    title="Symmetry",
     description="The side-bearings are almost equal.",
     testFunction=testMetricsSymmetry,
     drawingFunction=drawMetricsSymmetry
 )
+
 
 # -------------------
 # Contour Level Tests
@@ -672,6 +635,8 @@ def drawDuplicateContours(contours, scale, glyph):
 
 registerTest(
     identifier="duplicateContours",
+    level="contour",
+    title="Duplicate Contours",
     description="One or more contours are duplicated.",
     testFunction=testDuplicateContours,
     drawingFunction=drawDuplicateContours
@@ -713,6 +678,8 @@ def drawSmallContours(contours, scale, glyph):
 
 registerTest(
     identifier="smallContours",
+    level="contour",
+    title="Small Contours",
     description="One or more contours are suspiciously small.",
     testFunction=testForSmallContours,
     drawingFunction=drawSmallContours
@@ -753,6 +720,8 @@ def drawOpenContours(contours, scale, glyph):
 
 registerTest(
     identifier="openContours",
+    level="contour",
+    title="Open Contours",
     description="One or more contours are not properly closed.",
     testFunction=testForOpenContours,
     drawingFunction=drawOpenContours
@@ -798,10 +767,13 @@ def drawExtremePoints(contours, scale, glyph):
 
 registerTest(
     identifier="extremePoints",
+    level="contour",
+    title="Extreme Points",
     description="One or more curves need an extreme point.",
     testFunction=testForExtremePoints,
     drawingFunction=drawExtremePoints
 )
+
 
 # -------------------
 # Segment Level Tests
@@ -853,6 +825,8 @@ def drawStraightLines(contours, scale, glyph):
 
 registerTest(
     identifier="straightLines",
+    level="segment",
+    title="Straight Lines",
     description="One or more lines is a few units from being horizontal or vertical.",
     testFunction=testForStraightLines,
     drawingFunction=drawStraightLines
@@ -936,6 +910,8 @@ def drawSegmentsNearVericalMetrics(verticalMetrics, scale, glyph):
 
 registerTest(
     identifier="pointsNearVerticalMetrics",
+    level="segment",
+    title="Near Vertical Metrics",
     description="Two or more points are just off a vertical metric.",
     testFunction=testForSegmentsNearVerticalMetrics,
     drawingFunction=drawSegmentsNearVericalMetrics
@@ -981,6 +957,8 @@ def drawUnsmoothSmooths(contours, scale, glyph):
 
 registerTest(
     identifier="unsmoothSmooths",
+    level="segment",
+    title="Unsmooth Smooths",
     description="One or more smooth points do not have handles that are properly placed.",
     testFunction=testUnsmoothSmooths,
     drawingFunction=drawUnsmoothSmooths
@@ -1027,6 +1005,8 @@ def drawComplexCurves(contours, scale, glyph):
 
 registerTest(
     identifier="complexCurves",
+    level="segment",
+    title="Complex Curves",
     description="One or more curves is suspiciously complex.",
     testFunction=testForComplexCurves,
     drawingFunction=drawComplexCurves
@@ -1115,6 +1095,8 @@ def drawCrossedHandles(contours, scale, glyph):
 
 registerTest(
     identifier="crossedHandles",
+    level="segment",
+    title="Crossed Handles",
     description="One or more curves contain crossed handles.",
     testFunction=testForCrossedHandles,
     drawingFunction=drawCrossedHandles
@@ -1174,10 +1156,13 @@ def drawUnnecessaryHandles(contours, scale, glyph):
 
 registerTest(
     identifier="unnecessaryHandles",
+    level="segment",
+    title="Unnecessary Handles",
     description="One or more curves has unnecessary handles.",
     testFunction=testForUnnecessaryHandles,
     drawingFunction=drawUnnecessaryHandles
 )
+
 
 # -----------------
 # Point Level Tests
@@ -1213,6 +1198,8 @@ def drawStrayPoints(contours, scale, glyph):
 
 registerTest(
     identifier="strayPoints",
+    level="point",
+    title="Stray Points",
     description="One or more stray points are present.",
     testFunction=testForStrayPoints,
     drawingFunction=drawStrayPoints
@@ -1254,6 +1241,8 @@ def drawUnnecessaryPoints(contours, scale, glyph):
 
 registerTest(
     identifier="unnecessaryPoints",
+    level="point",
+    title="Unnecessary Points",
     description="One or more unnecessary points are present in lines.",
     testFunction=testForUnnecessaryPoints,
     drawingFunction=drawUnnecessaryPoints
@@ -1298,10 +1287,13 @@ def drawOverlappingPoints(contours, scale, glyph):
 
 registerTest(
     identifier="overlappingPoints",
+    level="point",
+    title="Overlapping Points",
     description="Two or more points are overlapping.",
     testFunction=testForOverlappingPoints,
     drawingFunction=drawOverlappingPoints
 )
+
 
 # --------------
 # Test Utilities
@@ -1357,6 +1349,7 @@ def _getAngleOffset(angle, distance):
     b = (c * math.sin(B)) / math.sin(C)
     return b
 
+
 # -----------------
 # Drawing Utilities
 # -----------------
@@ -1399,9 +1392,24 @@ def calcMid(pt1, pt2):
     y = y1 - ((y1 - y2) / 2)
     return x, y
 
+
 if __name__ == "__main__":
+    # register the factory
     if roboFontVersion > "1.5.1":
         _registerFactory()
+    # sanity check to make sure that the tests are consistently registered
     assert set(reportOrder) == set(testRegistry.keys())
     assert set(drawingOrder) == set(testRegistry.keys())
-    GlyphNannyControls()
+    # register the defaults
+    registerGlyphNannyDefaults()
+    # boot the observer
+    glyphNannyObserver = GlyphNannyObserver()
+    # if debugging, kill any instances of this observer that are already running
+    if DEBUG:
+        from lib.eventTools.eventManager import allObservers
+        for event, observer in allObservers():
+            if observer.__class__.__name__ == "GlyphNannyObserver":
+                unregisterGlyphNannyObserver(observer)
+    # register it
+    registerGlyphNannyObserver(glyphNannyObserver)
+
