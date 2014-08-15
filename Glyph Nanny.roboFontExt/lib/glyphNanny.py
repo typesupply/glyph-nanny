@@ -147,11 +147,11 @@ class GlyphNannyPrefsWindow(object):
         width = 200
         for title, color, key in colors:
             title += " Color"
-            control = vanilla.TextBox((left, 253, 120, 17), title, alignment="right")
-            setattr(self.w, "colorTitle_" + title, control)
-            control = vanilla.ColorWell((left + 125, 250, 70, 25), color=color, callback=self.noteColorColorWellCallback)
+            control = vanilla.ColorWell((left, 250, 70, 25), color=color, callback=self.noteColorColorWellCallback)
             self.colorControlToKey[control] = key
             setattr(self.w, "colorWell_" + title, control)
+            control = vanilla.TextBox((left + 75, 253, 120, 17), title)
+            setattr(self.w, "colorTitle_" + title, control)
             left += width + 15
 
         self.w.open()
