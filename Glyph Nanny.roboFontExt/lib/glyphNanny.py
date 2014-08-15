@@ -154,6 +154,7 @@ reportOrder = """
 unicodeValue
 contourCount
 componentMetrics
+ligatureMetrics
 metricsSymmetry
 strayPoints
 smallContours
@@ -174,6 +175,7 @@ drawingOrder = """
 unicodeValue
 contourCount
 componentMetrics
+ligatureMetrics
 metricsSymmetry
 smallContours
 pointsNearVerticalMetrics
@@ -406,7 +408,96 @@ registerTest(
 # Metrics Level Tests
 # -------------------
 
-# components
+# Ligatures
+
+def testLigatureMetrics(glyph):
+    """
+    Sometimes ligatures should have the same
+    metrics as the glyphs they represent.
+    """
+    font = glyph.getParent()
+    name = glyph.name
+    if "_" not in name:
+        return
+    base = name
+    suffix = None
+    if "." in name:
+        base, suffix = name.split(".", 1)
+    # guess at the ligature parts
+    parts = base.split("_")
+    leftPart = parts[0]
+    rightPart = parts[-1]
+    # try snapping on the suffixes
+    if suffix:
+        if leftPart + "." + suffix in font:
+            leftPart += "." + suffix
+        if rightPart + "." + suffix in font:
+            rightPart += "." + suffix
+    # test
+    left = glyph.leftMargin
+    right = glyph.rightMargin
+    report = dict(leftMessage=None, rightMessage=None, left=left, right=right, width=glyph.width, box=glyph.box)
+    if leftPart not in font:
+        report["leftMessage"] = "Couldn't find the ligature's left component."
+    else:
+        expectedLeft = font[leftPart].leftMargin
+        if left != expectedLeft:
+            report["leftMessage"] = "Left doesn't match the presumed part %s left" % leftPart
+    if rightPart not in font:
+        report["rightMessage"] = "Couldn't find the ligature's right component."
+    else:
+        expectedRight = font[rightPart].rightMargin
+        if right != expectedRight:
+            report["rightMessage"] = "Right doesn't match the presumed part %s right" % rightPart
+    if report["leftMessage"] or report["rightMessage"]:
+        return report
+    return None
+
+ligatureMetricsColor = colorReview()
+
+def drawLigatureMetrics(data, scale):
+    xMin, yMin, xMax, yMax = data["box"]
+    h = (yMax - yMin) / 2.0
+    y = yMax - h + (20 * scale)
+    _drawSideBearingsReport(data, scale, y, ligatureMetricsColor)
+
+def _drawSideBearingsReport(data, scale, textPosition, color):
+    left = data["left"]
+    right = data["right"]
+    width = data["width"]
+    leftMessage = data["leftMessage"]
+    rightMessage = data["rightMessage"]
+    xMin, yMin, xMax, yMax = data["box"]
+    h = (yMax - yMin) / 2.0
+    y = textPosition
+    path = NSBezierPath.bezierPath()
+    if leftMessage:
+        path.moveToPoint_((0, y))
+        path.lineToPoint_((left, y))
+        path.moveToPoint_((left, yMin))
+        path.lineToPoint_((left, yMax))
+        x = min((0, left)) - (5 * scale)
+        drawString((x, y), leftMessage, 10, scale, color, alignment="right")
+    if rightMessage:
+        right = width - right
+        path.moveToPoint_((width, y))
+        path.lineToPoint_((right, y))
+        path.moveToPoint_((right, yMin))
+        path.lineToPoint_((right, yMax))
+        x = max((width, right)) + (5 * scale)
+        drawString((x, y), rightMessage, 10, scale, color, alignment="left")
+    color.set()
+    path.setLineWidth_(scale)
+    path.stroke()
+
+registerTest(
+    identifier="ligatureMetrics",
+    description="The side-bearings don't match the ligature's presumed part metrics.",
+    testFunction=testLigatureMetrics,
+    drawingFunction=drawLigatureMetrics
+)
+
+# Components
 
 def testComponentMetrics(glyph):
     """
@@ -474,33 +565,10 @@ def _getXMinMaxComponents(components):
 componentMetricsColor = colorReview()
 
 def drawComponentMetrics(data, scale):
-    left = data["left"]
-    right = data["right"]
-    width = data["width"]
     xMin, yMin, xMax, yMax = data["box"]
-    leftMessage = data["leftMessage"]
-    rightMessage = data["rightMessage"]
     h = (yMax - yMin) / 2.0
-    y = yMin + h
-    path = NSBezierPath.bezierPath()
-    if leftMessage:
-        path.moveToPoint_((0, y))
-        path.lineToPoint_((left, y))
-        path.moveToPoint_((left, y - h))
-        path.lineToPoint_((left, y + h))
-        x = min((0, left)) - (5 * scale)
-        drawString((x, y), leftMessage, 10, scale, componentMetricsColor, alignment="right")
-    if rightMessage:
-        right = width - right
-        path.moveToPoint_((width, y))
-        path.lineToPoint_((right, y))
-        path.moveToPoint_((right, y - h))
-        path.lineToPoint_((right, y + h))
-        x = max((width, right)) + (5 * scale)
-        drawString((x, y), rightMessage, 10, scale, componentMetricsColor, alignment="left")
-    componentMetricsColor.set()
-    path.setLineWidth_(scale)
-    path.stroke()
+    y = yMax - h - (20 * scale)
+    _drawSideBearingsReport(data, scale, y, componentMetricsColor)
 
 registerTest(
     identifier="componentMetrics",
