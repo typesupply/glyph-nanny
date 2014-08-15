@@ -6,9 +6,9 @@
 	<array>
 		<dict>
 			<key>path</key>
-			<string>glyphNanny.py</string>
+			<string>glyphNannyShowPrefs.py</string>
 			<key>preferredName</key>
-			<string>Glyph Nanny</string>
+			<string>Preferences</string>
 			<key>shortKey</key>
 			<string></string>
 		</dict>
@@ -20,14 +20,14 @@
 	<key>html</key>
 	<false/>
 	<key>launchAtStartUp</key>
-	<integer>0</integer>
+	<integer>1</integer>
 	<key>mainScript</key>
-	<string></string>
+	<string>glyphNanny.py</string>
 	<key>name</key>
 	<string>Glyph Nanny</string>
 	<key>timeStamp</key>
-	<real>1407259268.360523</real>
+	<real>1408123037.3503079</real>
 	<key>version</key>
-	<string>0.1</string>
+	<string>0.2</string>
 </dict>
 </plist>
