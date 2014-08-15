@@ -12,9 +12,9 @@ from mojo.roboFont import CurrentGlyph
 from mojo.roboFont import version as roboFontVersion
 from mojo.UI import UpdateCurrentGlyphView
 from mojo.events import addObserver, removeObserver
-from mojo.extensions import getExtensionDefault, setExtensionDefault
+from mojo.extensions import getExtensionDefault, setExtensionDefault, getExtensionDefaultColor, setExtensionDefaultColor
 
-DEBUG = True
+DEBUG = False
 
 # --------
 # Defaults
@@ -23,6 +23,10 @@ DEBUG = True
 defaultKeyStub = "com.typesupply.GlyphNanny."
 defaultKeyObserverVisibility = defaultKeyStub + "displayReportInGlyphView"
 defaultKeyTestStates = defaultKeyStub + "testStates"
+defaultKeyColorInform = defaultKeyStub + "colorInform"
+defaultKeyColorReview = defaultKeyStub + "colorReview"
+defaultKeyColorRemove = defaultKeyStub + "colorRemove"
+defaultKeyColorInsert = defaultKeyStub + "colorInsert"
 
 def registerGlyphNannyDefaults():
     defaults = {
@@ -86,25 +90,123 @@ class GlyphNannyObserver(object):
         drawTextReport(report, scale, glyph)
 
 
+# ------------
+# Prefs Window
+# ------------
+
+class GlyphNannyPrefsWindow(object):
+
+    def __init__(self):
+        self.testStateControlToIdentifier = {}
+        self.colorControlToKey = {}
+
+        self.w = vanilla.Window((1090, 300), "Glyph Nanny Preferences")
+
+        # global visibility
+        state = getExtensionDefault(defaultKeyObserverVisibility)
+        self.w.displayReportInGlyphViewCheckBox = vanilla.CheckBox((15, 15, -15, 22), "Display Live Report In Glyph View", value=state, callback=self.displayReportInGlyphViewCheckBoxCallback)
+        self.w.line1 = vanilla.HorizontalLine((15, 45, -15, 1))
+
+        # test states
+        left = 15
+        width = 200
+        for group in ("glyph", "metrics", "contour", "segment", "point"):
+            top = 60
+            # title
+            title = group.title() + " Tests"
+            control = vanilla.TextBox((left, top, width, 17), title)
+            setattr(self.w, "testStateTitle_" + group, control)
+            top += 20
+            line = vanilla.HorizontalLine((left, top, width, 1))
+            setattr(self.w, "testStateLine_" + group, line)
+            top += 10
+            # check boxes
+            for identifier in reportOrder:
+               for testIdentifier, testData in testRegistry.items():
+                   if testIdentifier != identifier:
+                       continue
+                   if testData["level"] != group:
+                       continue
+                   state = getExtensionDefault(defaultKeyTestStates)[identifier]
+                   control = vanilla.CheckBox((left, top, width, 22), testData["title"], value=state, callback=self.testStateCheckBoxCallback)
+                   top += 22
+                   self.testStateControlToIdentifier[control] = identifier
+                   setattr(self.w, "testStateCheckBox_" + identifier, control)
+            left += width + 15
+
+        self.w.line2 = vanilla.HorizontalLine((15, 235, -15, 1))
+
+        # colors
+        colors = [
+            ("Information", colorInform(), defaultKeyColorInform),
+            ("Review",      colorReview(), defaultKeyColorReview),
+            ("Insert",      colorInsert(), defaultKeyColorInsert),
+            ("Remove",      colorRemove(), defaultKeyColorRemove)
+        ]
+        left = 15
+        width = 200
+        for title, color, key in colors:
+            title += " Color"
+            control = vanilla.TextBox((left, 253, 120, 17), title, alignment="right")
+            setattr(self.w, "colorTitle_" + title, control)
+            control = vanilla.ColorWell((left + 125, 250, 70, 25), color=color, callback=self.noteColorColorWellCallback)
+            self.colorControlToKey[control] = key
+            setattr(self.w, "colorWell_" + title, control)
+            left += width + 15
+
+        self.w.open()
+
+    def displayReportInGlyphViewCheckBoxCallback(self, sender):
+        state = sender.get()
+        setExtensionDefault(defaultKeyObserverVisibility, state)
+        UpdateCurrentGlyphView()
+
+    def testStateCheckBoxCallback(self, sender):
+        identifier = self.testStateControlToIdentifier[sender]
+        state = sender.get()
+        defaults = getExtensionDefault(defaultKeyTestStates)
+        defaults[identifier] = state
+        setExtensionDefault(defaultKeyTestStates, defaults)
+        UpdateCurrentGlyphView()
+
+    def noteColorColorWellCallback(self, sender):
+        color = sender.get()
+        key = self.colorControlToKey[sender]
+        setExtensionDefaultColor(key, color)
+        UpdateCurrentGlyphView()
+
+
 # ------
 # Colors
 # ------
 
 # Informative: Blue
-def colorInform(alpha=0.3):
-    return NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 0, 0.7, alpha)
+def colorInform():
+    color = getExtensionDefaultColor(defaultKeyColorInform)
+    if color is None:
+        color = NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 0, 0.7, 0.3)
+    return color
 
 # Insert Something: Green
-def colorInsert(alpha=0.75):
-    return NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 1, 0, alpha)
+def colorInsert():
+    color = getExtensionDefaultColor(defaultKeyColorInsert)
+    if color is None:
+        color = NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 1, 0, 0.75)
+    return color
 
 # Remove Something: Red
-def colorRemove(alpha=0.5):
-    return NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, alpha)
+def colorRemove():
+    color = getExtensionDefaultColor(defaultKeyColorInsert)
+    if color is None:
+        color = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
+    return color
 
 # Review Something: Yellow-Orange
-def colorReview(alpha=0.7):
-    return NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, alpha)
+def colorReview():
+    color = getExtensionDefaultColor(defaultKeyColorInsert)
+    if color is None:
+        color = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
+    return color
 
 
 # ------
@@ -269,8 +371,6 @@ def registerTest(identifier=None, level=None, title=None, description=None, test
 # Glyph Level Tests
 # -----------------
 
-textReportColor = colorInform()
-
 def drawTextReport(report, scale, glyph):
     text = []
     r = report.get("unicodeValue")
@@ -283,7 +383,7 @@ def drawTextReport(report, scale, glyph):
         text = "\n".join(text)
         x = 50
         y = 50
-        drawString((x, y), text, 16, scale, textReportColor, alignment="left")
+        drawString((x, y), text, 16, scale, colorInform(), alignment="left")
 
 # Unicode Value
 
@@ -409,13 +509,11 @@ def testLigatureMetrics(glyph):
         return report
     return None
 
-ligatureMetricsColor = colorReview()
-
 def drawLigatureMetrics(data, scale, glyph):
     xMin, yMin, xMax, yMax = data["box"]
     h = (yMax - yMin) / 2.0
     y = yMax - h + (20 * scale)
-    _drawSideBearingsReport(data, scale, y, ligatureMetricsColor)
+    _drawSideBearingsReport(data, scale, y, colorReview())
 
 def _drawSideBearingsReport(data, scale, textPosition, color):
     left = data["left"]
@@ -520,13 +618,11 @@ def _getXMinMaxComponents(components):
     ]
     return o
 
-componentMetricsColor = colorReview()
-
 def drawComponentMetrics(data, scale, glyph):
     xMin, yMin, xMax, yMax = data["box"]
     h = (yMax - yMin) / 2.0
     y = yMax - h - (20 * scale)
-    _drawSideBearingsReport(data, scale, y, componentMetricsColor)
+    _drawSideBearingsReport(data, scale, y, colorReview())
 
 registerTest(
     identifier="componentMetrics",
@@ -555,9 +651,8 @@ def testMetricsSymmetry(glyph):
         return data
     return None
 
-metricsSymmetryColor = colorReview()
-
 def drawMetricsSymmetry(data, scale, glyph):
+    color = colorReview()
     left = data["left"]
     right = data["right"]
     width = data["width"]
@@ -576,9 +671,9 @@ def drawMetricsSymmetry(data, scale, glyph):
     path.moveToPoint_((width, 0))
     path.lineToPoint_((width, y * 2))
     path.setLineWidth_(scale)
-    metricsSymmetryColor.set()
+    color.set()
     path.stroke()
-    drawString((x, y), message, 10, scale, metricsSymmetryColor, backgroundColor=NSColor.whiteColor())
+    drawString((x, y), message, 10, scale, color, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="metricsSymmetry",
@@ -616,11 +711,10 @@ def testDuplicateContours(glyph):
             duplicateContours.append(indexes[0])
     return duplicateContours
 
-duplicateContoursColor = colorRemove()
-
 def drawDuplicateContours(contours, scale, glyph):
     font = glyph.getParent()
-    duplicateContoursColor.set()
+    color = colorRemove()
+    color.set()
     for contourIndex in contours:
         contour = glyph[contourIndex]
         pen = CocoaPen(font)
@@ -631,7 +725,7 @@ def drawDuplicateContours(contours, scale, glyph):
         xMin, yMin, xMax, yMax = contour.box
         mid = calcMid((xMin, yMin), (xMax, yMin))
         x, y = mid
-        drawString((x, y - (10 * scale)), "Duplicate Contour", 10, scale, duplicateContoursColor)
+        drawString((x, y - (10 * scale)), "Duplicate Contour", 10, scale, color)
 
 registerTest(
     identifier="duplicateContours",
@@ -661,10 +755,9 @@ def testForSmallContours(glyph):
             smallContours[index] = contour.box
     return smallContours
 
-smallContoursColor = colorRemove(0.7)
-
 def drawSmallContours(contours, scale, glyph):
-    smallContoursColor.set()
+    color = colorRemove()
+    color.set()
     for contourIndex, box in contours.items():
         xMin, yMin, xMax, yMax = box
         w = xMax - xMin
@@ -674,7 +767,7 @@ def drawSmallContours(contours, scale, glyph):
         NSRectFillUsingOperation(r, NSCompositeSourceOver)
         x = xMin + (w / 2)
         y = yMin - (10 * scale)
-        drawString((x, y), "Tiny Contour", 10, scale, smallContoursColor)
+        drawString((x, y), "Tiny Contour", 10, scale, color)
 
 registerTest(
     identifier="smallContours",
@@ -703,10 +796,9 @@ def testForOpenContours(glyph):
             openContours[index] = (start, end)
     return openContours
 
-openContoursColor = colorInsert()
-
 def drawOpenContours(contours, scale, glyph):
-    openContoursColor.set()
+    color = colorInsert()
+    color.set()
     for contourIndex, points in contours.items():
         start, end = points
         mid = calcMid(start, end)
@@ -716,7 +808,7 @@ def drawOpenContours(contours, scale, glyph):
         path.setLineWidth_(scale)
         path.setLineDash_count_phase_([4], 1, 0.0)
         path.stroke()
-        drawString(mid, "Open Contour", 10, scale, openContoursColor, backgroundColor=NSColor.whiteColor())
+        drawString(mid, "Open Contour", 10, scale, color, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="openContours",
@@ -745,9 +837,8 @@ def testForExtremePoints(glyph):
             pointsAtExtrema[index] = testPoints - points
     return pointsAtExtrema
 
-extremePointsColor = colorInsert()
-
 def drawExtremePoints(contours, scale, glyph):
+    color = colorInsert()
     path = NSBezierPath.bezierPath()
     d = 16 * scale
     h = d / 2.0
@@ -760,8 +851,8 @@ def drawExtremePoints(contours, scale, glyph):
             path.lineToPoint_((x + h - o, y))
             path.moveToPoint_((x, y - h + o))
             path.lineToPoint_((x, y + h - o))
-            drawString((x, y - (16 * scale)), "Insert Point", 10, scale, extremePointsColor)
-    extremePointsColor.set()
+            drawString((x, y - (16 * scale)), "Insert Point", 10, scale, color)
+    color.set()
     path.setLineWidth_(scale)
     path.stroke()
 
@@ -802,10 +893,9 @@ def testForStraightLines(glyph):
             prev = point
     return straightLines
 
-straightLinesColor = colorReview()
-
 def drawStraightLines(contours, scale, glyph):
-    straightLinesColor.set()
+    color = colorReview()
+    color.set()
     for contourIndex, segments in contours.items():
         for segment in segments:
             xs = []
@@ -884,9 +974,8 @@ def _testPointNearVerticalMetrics(pt, verticalMetrics):
             return True, v
     return False, None
 
-segmentsNearVerticalMetricsColor = colorReview()
-
 def drawSegmentsNearVericalMetrics(verticalMetrics, scale, glyph):
+    color = colorReview()
     path = NSBezierPath.bezierPath()
     for verticalMetric, points in verticalMetrics.items():
         xMin = None
@@ -904,7 +993,7 @@ def drawSegmentsNearVericalMetrics(verticalMetrics, scale, glyph):
                 xMax = x
         path.moveToPoint_((xMin, verticalMetric))
         path.lineToPoint_((xMax, verticalMetric))
-    segmentsNearVerticalMetricsColor.set()
+    color.set()
     path.setLineWidth_(4 * scale)
     path.stroke()
 
@@ -941,10 +1030,9 @@ def testUnsmoothSmooths(glyph):
             prev = segment
     return unsmoothSmooths
 
-unsmoothSmoothsColor = colorReview()
-
 def drawUnsmoothSmooths(contours, scale, glyph):
-    unsmoothSmoothsColor.set()
+    color = colorReview()
+    color.set()
     for contourIndex, points in contours.items():
         path = NSBezierPath.bezierPath()
         for pt1, pt2, pt3 in points:
@@ -953,7 +1041,7 @@ def drawUnsmoothSmooths(contours, scale, glyph):
         path.setLineWidth_(2 * scale)
         path.stroke()
         x, y = pt2
-        drawString((x, y - (10 * scale)), "Unsmooth Smooth", 10, scale, unsmoothSmoothsColor, backgroundColor=NSColor.whiteColor())
+        drawString((x, y - (10 * scale)), "Unsmooth Smooth", 10, scale, color, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="unsmoothSmooths",
@@ -987,10 +1075,9 @@ def testForComplexCurves(glyph):
             prev = _unwrapPoint(segment.onCurve)
     return impliedS
 
-complexCurvesColor = colorReview()
-
 def drawComplexCurves(contours, scale, glyph):
-    complexCurvesColor.set()
+    color = colorReview()
+    color.set()
     for contourIndex, segments in contours.items():
         for segment in segments:
             pt0, pt1, pt2, pt3 = segment
@@ -1001,7 +1088,7 @@ def drawComplexCurves(contours, scale, glyph):
             path.setLineCapStyle_(NSRoundLineCapStyle)
             path.stroke()
             mid = splitCubicAtT(pt0, pt1, pt2, pt3, 0.5)[0][-1]
-            drawString(mid, "Complex Curve", 10, scale, complexCurvesColor, backgroundColor=NSColor.whiteColor())
+            drawString(mid, "Complex Curve", 10, scale, color, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="complexCurves",
@@ -1068,12 +1155,11 @@ def testForCrossedHandles(glyph):
             pt0 = pt3
     return crossedHandles
 
-crossedHandlesColor = colorReview()
-
 def drawCrossedHandles(contours, scale, glyph):
     d = 10 * scale
     h = d / 2.0
-    crossedHandlesColor.set()
+    color = colorReview()
+    color.set()
     for contourIndex, segments in contours.items():
         for segment in segments:
             pt1, pt2, pt3, pt4 = segment["points"]
@@ -1091,7 +1177,7 @@ def drawCrossedHandles(contours, scale, glyph):
             path1.setLineCapStyle_(NSRoundLineCapStyle)
             path1.stroke()
             path2.fill()
-            drawString((x, y - (12 * scale)), "Crossed Handles", 10, scale, crossedHandlesColor, backgroundColor=NSColor.whiteColor())
+            drawString((x, y - (12 * scale)), "Crossed Handles", 10, scale, color, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="crossedHandles",
@@ -1129,10 +1215,9 @@ def testForUnnecessaryHandles(glyph):
             prevPoint = segment.onCurve
     return unnecessaryHandles
 
-unnecessaryHandlesColor = colorRemove()
-
 def drawUnnecessaryHandles(contours, scale, glyph):
-    unnecessaryHandlesColor.set()
+    color = colorRemove()
+    color.set()
     d = 10 * scale
     h = d / 2.0
     for contourIndex, points in contours.items():
@@ -1152,7 +1237,7 @@ def drawUnnecessaryHandles(contours, scale, glyph):
             path2.stroke()
             # text
             mid = calcMid(bcp1, bcp2)
-            drawString(mid, "Unnecessary Handles", 10, scale, unnecessaryHandlesColor, backgroundColor=NSColor.whiteColor())
+            drawString(mid, "Unnecessary Handles", 10, scale, color, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="unnecessaryHandles",
@@ -1182,17 +1267,16 @@ def testForStrayPoints(glyph):
             strayPoints[index] = pt
     return strayPoints
 
-strayPointsColor = colorRemove()
-
 def drawStrayPoints(contours, scale, glyph):
+    color = colorRemove()
     path = NSBezierPath.bezierPath()
     d = 20 * scale
     h = d / 2.0
     for contourIndex, (x, y) in contours.items():
         r = ((x - h, y - h), (d, d))
         path.appendBezierPathWithOvalInRect_(r)
-        drawString((x, y - d), "Stray Point", 10, scale, strayPointsColor)
-    strayPointsColor.set()
+        drawString((x, y - d), "Stray Point", 10, scale, color)
+    color.set()
     path.setLineWidth_(scale)
     path.stroke()
 
@@ -1226,16 +1310,15 @@ def testForUnnecessaryPoints(glyph):
                         unnecessaryPoints[index].append(_unwrapPoint(segment.onCurve))
     return unnecessaryPoints
 
-unnecessaryPointsColor = colorRemove()
-
 def drawUnnecessaryPoints(contours, scale, glyph):
+    color = colorRemove()
     path = NSBezierPath.bezierPath()
     for contourIndex, points in contours.items():
         for pt in points:
             drawDeleteMark(pt, scale, path)
             x, y = pt
-            drawString((x, y - (10 * scale)), "Unnecessary Point", 10, scale, unnecessaryPointsColor)
-    unnecessaryPointsColor.set()
+            drawString((x, y - (10 * scale)), "Unnecessary Point", 10, scale, color)
+    color.set()
     path.setLineWidth_(2 * scale)
     path.stroke()
 
@@ -1268,9 +1351,8 @@ def testForOverlappingPoints(glyph):
             prev = point
     return overlappingPoints
 
-overlappingPointsColor = colorRemove()
-
 def drawOverlappingPoints(contours, scale, glyph):
+    color = colorRemove()
     path = NSBezierPath.bezierPath()
     d = 10 * scale
     h = d / 2.0
@@ -1281,8 +1363,8 @@ def drawOverlappingPoints(contours, scale, glyph):
             path.appendBezierPathWithOvalInRect_(r)
             r = ((x - q, y - d + q), (d, d))
             path.appendBezierPathWithOvalInRect_(r)
-            drawString((x, y - (12 * scale)), "Overlapping Points", 10, scale, overlappingPointsColor)
-    overlappingPointsColor.set()
+            drawString((x, y - (12 * scale)), "Overlapping Points", 10, scale, color)
+    color.set()
     path.fill()
 
 registerTest(
@@ -1412,4 +1494,3 @@ if __name__ == "__main__":
                 unregisterGlyphNannyObserver(observer)
     # register it
     registerGlyphNannyObserver(glyphNannyObserver)
-
