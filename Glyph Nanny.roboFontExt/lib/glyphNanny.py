@@ -142,8 +142,8 @@ class GlyphNannyObserver(object):
             if data:
                 drawingFunction = testRegistry[key]["drawingFunction"]
                 if drawingFunction is not None:
-                    drawingFunction(data, scale)
-        drawTextReport(report, scale)
+                    drawingFunction(data, scale, glyph)
+        drawTextReport(report, scale, glyph)
 
 
 # ------
@@ -320,7 +320,7 @@ def colorReview(alpha=0.7):
 
 textReportColor = colorInform()
 
-def drawTextReport(report, scale):
+def drawTextReport(report, scale, glyph):
     text = []
     r = report.get("unicodeValue")
     if r:
@@ -455,7 +455,7 @@ def testLigatureMetrics(glyph):
 
 ligatureMetricsColor = colorReview()
 
-def drawLigatureMetrics(data, scale):
+def drawLigatureMetrics(data, scale, glyph):
     xMin, yMin, xMax, yMax = data["box"]
     h = (yMax - yMin) / 2.0
     y = yMax - h + (20 * scale)
@@ -564,7 +564,7 @@ def _getXMinMaxComponents(components):
 
 componentMetricsColor = colorReview()
 
-def drawComponentMetrics(data, scale):
+def drawComponentMetrics(data, scale, glyph):
     xMin, yMin, xMax, yMax = data["box"]
     h = (yMax - yMin) / 2.0
     y = yMax - h - (20 * scale)
@@ -597,7 +597,7 @@ def testMetricsSymmetry(glyph):
 
 metricsSymmetryColor = colorReview()
 
-def drawMetricsSymmetry(data, scale):
+def drawMetricsSymmetry(data, scale, glyph):
     left = data["left"]
     right = data["right"]
     width = data["width"]
@@ -655,8 +655,7 @@ def testDuplicateContours(glyph):
 
 duplicateContoursColor = colorRemove()
 
-def drawDuplicateContours(contours, scale):
-    glyph = CurrentGlyph()
+def drawDuplicateContours(contours, scale, glyph):
     font = glyph.getParent()
     duplicateContoursColor.set()
     for contourIndex in contours:
@@ -699,7 +698,7 @@ def testForSmallContours(glyph):
 
 smallContoursColor = colorRemove(0.7)
 
-def drawSmallContours(contours, scale):
+def drawSmallContours(contours, scale, glyph):
     smallContoursColor.set()
     for contourIndex, box in contours.items():
         xMin, yMin, xMax, yMax = box
@@ -739,7 +738,7 @@ def testForOpenContours(glyph):
 
 openContoursColor = colorInsert()
 
-def drawOpenContours(contours, scale):
+def drawOpenContours(contours, scale, glyph):
     openContoursColor.set()
     for contourIndex, points in contours.items():
         start, end = points
@@ -779,7 +778,7 @@ def testForExtremePoints(glyph):
 
 extremePointsColor = colorInsert()
 
-def drawExtremePoints(contours, scale):
+def drawExtremePoints(contours, scale, glyph):
     path = NSBezierPath.bezierPath()
     d = 16 * scale
     h = d / 2.0
@@ -833,7 +832,7 @@ def testForStraightLines(glyph):
 
 straightLinesColor = colorReview()
 
-def drawStraightLines(contours, scale):
+def drawStraightLines(contours, scale, glyph):
     straightLinesColor.set()
     for contourIndex, segments in contours.items():
         for segment in segments:
@@ -913,7 +912,7 @@ def _testPointNearVerticalMetrics(pt, verticalMetrics):
 
 segmentsNearVerticalMetricsColor = colorReview()
 
-def drawSegmentsNearVericalMetrics(verticalMetrics, scale):
+def drawSegmentsNearVericalMetrics(verticalMetrics, scale, glyph):
     path = NSBezierPath.bezierPath()
     for verticalMetric, points in verticalMetrics.items():
         xMin = None
@@ -968,7 +967,7 @@ def testUnsmoothSmooths(glyph):
 
 unsmoothSmoothsColor = colorReview()
 
-def drawUnsmoothSmooths(contours, scale):
+def drawUnsmoothSmooths(contours, scale, glyph):
     unsmoothSmoothsColor.set()
     for contourIndex, points in contours.items():
         path = NSBezierPath.bezierPath()
@@ -1012,7 +1011,7 @@ def testForComplexCurves(glyph):
 
 complexCurvesColor = colorReview()
 
-def drawComplexCurves(contours, scale):
+def drawComplexCurves(contours, scale, glyph):
     complexCurvesColor.set()
     for contourIndex, segments in contours.items():
         for segment in segments:
@@ -1091,7 +1090,7 @@ def testForCrossedHandles(glyph):
 
 crossedHandlesColor = colorReview()
 
-def drawCrossedHandles(contours, scale):
+def drawCrossedHandles(contours, scale, glyph):
     d = 10 * scale
     h = d / 2.0
     crossedHandlesColor.set()
@@ -1150,7 +1149,7 @@ def testForUnnecessaryHandles(glyph):
 
 unnecessaryHandlesColor = colorRemove()
 
-def drawUnnecessaryHandles(contours, scale):
+def drawUnnecessaryHandles(contours, scale, glyph):
     unnecessaryHandlesColor.set()
     d = 10 * scale
     h = d / 2.0
@@ -1200,7 +1199,7 @@ def testForStrayPoints(glyph):
 
 strayPointsColor = colorRemove()
 
-def drawStrayPoints(contours, scale):
+def drawStrayPoints(contours, scale, glyph):
     path = NSBezierPath.bezierPath()
     d = 20 * scale
     h = d / 2.0
@@ -1242,7 +1241,7 @@ def testForUnnecessaryPoints(glyph):
 
 unnecessaryPointsColor = colorRemove()
 
-def drawUnnecessaryPoints(contours, scale):
+def drawUnnecessaryPoints(contours, scale, glyph):
     path = NSBezierPath.bezierPath()
     for contourIndex, points in contours.items():
         for pt in points:
@@ -1282,7 +1281,7 @@ def testForOverlappingPoints(glyph):
 
 overlappingPointsColor = colorRemove()
 
-def drawOverlappingPoints(contours, scale):
+def drawOverlappingPoints(contours, scale, glyph):
     path = NSBezierPath.bezierPath()
     d = 10 * scale
     h = d / 2.0
