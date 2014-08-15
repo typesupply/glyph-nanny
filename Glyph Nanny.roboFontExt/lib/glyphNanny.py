@@ -13,7 +13,7 @@ from mojo.roboFont import version as roboFontVersion
 from mojo.UI import UpdateCurrentGlyphView
 from mojo.events import addObserver, removeObserver
 
-DEBUG = True
+DEBUG = False
 
 # -------
 # Palette
