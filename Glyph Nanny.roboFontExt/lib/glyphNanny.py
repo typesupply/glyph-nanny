@@ -137,13 +137,12 @@ class GlyphNannyPrefsWindow(object):
         # colors
         colors = [
             ("Information", colorInform(), defaultKeyColorInform),
-            ("Review", colorReview(), defaultKeyColorReview),
-            ("Insert", colorInsert(), defaultKeyColorInsert),
-            ("Remove", colorRemove(), defaultKeyColorRemove)
+            ("Review Something", colorReview(), defaultKeyColorReview),
+            ("Insert Something", colorInsert(), defaultKeyColorInsert),
+            ("Remove Something", colorRemove(), defaultKeyColorRemove)
         ]
         top = 270
         for title, color, key in colors:
-            title += " Color"
             control = vanilla.ColorWell((15, top, 70, 25), color=color, callback=self.noteColorColorWellCallback)
             self.colorControlToKey[control] = key
             setattr(self.w, "colorWell_" + title, control)
