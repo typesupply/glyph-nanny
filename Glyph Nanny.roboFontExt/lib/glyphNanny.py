@@ -153,6 +153,7 @@ class GlyphNannyObserver(object):
 reportOrder = """
 unicodeValue
 contourCount
+componentMetrics
 metricsSymmetry
 strayPoints
 smallContours
@@ -172,6 +173,7 @@ unsmoothSmooths
 drawingOrder = """
 unicodeValue
 contourCount
+componentMetrics
 metricsSymmetry
 smallContours
 pointsNearVerticalMetrics
@@ -404,6 +406,109 @@ registerTest(
 # Metrics Level Tests
 # -------------------
 
+# components
+
+def testComponentMetrics(glyph):
+    """
+    If components are present, check their base margins.
+    """
+    font = glyph.getParent()
+    components = [c for c in glyph.components if c.baseGlyph in font]
+    # no components
+    if len(components) == 0:
+        return
+    report = dict(leftMessage=None, rightMessage=None, left=None, right=None, width=glyph.width, box=glyph.box)
+    problem = False
+    if len(components) > 1:
+        # filter marks
+        nonMarks = []
+        markCategories = ("Sk", "Zs", "Lm")
+        for component in components:
+            baseGlyphName = component.baseGlyph
+            category = font.naked().unicodeData.categoryForGlyphName(baseGlyphName, allowPseudoUnicode=True)
+            if category not in markCategories:
+                nonMarks.append(component)
+        if nonMarks:
+            components = nonMarks
+    # order the components from left to right based on their boxes
+    if len(components) > 1:
+        leftComponent, rightComponent = _getXMinMaxComponents(components)
+    else:
+        leftComponent = rightComponent = components[0]
+    expectedLeft = _getComponentBaseMargins(font, leftComponent)[0]
+    expectedRight = _getComponentBaseMargins(font, rightComponent)[1]
+    left = leftComponent.box[0]
+    right = glyph.width - rightComponent.box[2]
+    if left != expectedLeft:
+        problem = True
+        report["leftMessage"] = "%s component left does not match %s left" % (leftComponent.baseGlyph, leftComponent.baseGlyph)
+        report["left"] = left
+    if right != expectedRight:
+        problem = True
+        report["rightMessage"] = "%s component right does not match %s right" % (rightComponent.baseGlyph, rightComponent.baseGlyph)
+        report["right"] = right
+    if problem:
+        return report
+
+def _getComponentBaseMargins(font, component):
+    baseGlyphName = component.baseGlyph
+    baseGlyph = font[baseGlyphName]
+    scale = component.scale[0]
+    left = baseGlyph.leftMargin * scale
+    right = baseGlyph.rightMargin * scale
+    return left, right
+
+def _getXMinMaxComponents(components):
+    minSide = []
+    maxSide = []
+    for component in components:
+        xMin, yMin, xMax, yMax = component.box
+        minSide.append((xMin, component))
+        maxSide.append((xMax, component))
+    o = [
+        min(minSide)[-1],
+        max(maxSide)[-1],
+    ]
+    return o
+
+componentMetricsColor = colorReview()
+
+def drawComponentMetrics(data, scale):
+    left = data["left"]
+    right = data["right"]
+    width = data["width"]
+    xMin, yMin, xMax, yMax = data["box"]
+    leftMessage = data["leftMessage"]
+    rightMessage = data["rightMessage"]
+    h = (yMax - yMin) / 2.0
+    y = yMin + h
+    path = NSBezierPath.bezierPath()
+    if leftMessage:
+        path.moveToPoint_((0, y))
+        path.lineToPoint_((left, y))
+        path.moveToPoint_((left, y - h))
+        path.lineToPoint_((left, y + h))
+        x = min((0, left)) - (5 * scale)
+        drawString((x, y), leftMessage, 10, scale, componentMetricsColor, alignment="right")
+    if rightMessage:
+        right = width - right
+        path.moveToPoint_((width, y))
+        path.lineToPoint_((right, y))
+        path.moveToPoint_((right, y - h))
+        path.lineToPoint_((right, y + h))
+        x = max((width, right)) + (5 * scale)
+        drawString((x, y), rightMessage, 10, scale, componentMetricsColor, alignment="left")
+    componentMetricsColor.set()
+    path.setLineWidth_(scale)
+    path.stroke()
+
+registerTest(
+    identifier="componentMetrics",
+    description="The side-bearings don't match the component's metrics.",
+    testFunction=testComponentMetrics,
+    drawingFunction=drawComponentMetrics
+)
+
 # Symmetry
 
 def testMetricsSymmetry(glyph):
@@ -449,7 +554,7 @@ def drawMetricsSymmetry(data, scale):
 
 registerTest(
     identifier="metricsSymmetry",
-    description="The side-bearings are almost equal",
+    description="The side-bearings are almost equal.",
     testFunction=testMetricsSymmetry,
     drawingFunction=drawMetricsSymmetry
 )
@@ -1215,6 +1320,9 @@ def drawString(pt, text, size, scale, color, alignment="center", backgroundColor
         width, height = text.size()
         x -= width / 2.0
         y -= height / 2.0
+    elif alignment == "right":
+        width, height = text.size()
+        x -= width
     text.drawAtPoint_((x, y))
 
 def calcMid(pt1, pt2):
