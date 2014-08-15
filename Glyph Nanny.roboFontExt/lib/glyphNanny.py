@@ -100,27 +100,27 @@ class GlyphNannyPrefsWindow(object):
         self.testStateControlToIdentifier = {}
         self.colorControlToKey = {}
 
-        self.w = vanilla.Window((1090, 300), "Glyph Nanny Preferences")
+        self.w = vanilla.Window((264, 405), "Glyph Nanny Preferences")
 
         # global visibility
         state = getExtensionDefault(defaultKeyObserverVisibility)
-        self.w.displayReportInGlyphViewCheckBox = vanilla.CheckBox((15, 15, -15, 22), "Display Live Report In Glyph View", value=state, callback=self.displayReportInGlyphViewCheckBoxCallback)
-        self.w.line1 = vanilla.HorizontalLine((15, 45, -15, 1))
+        self.w.displayLiveReportTitle = vanilla.TextBox((15, 15, 150, 17), "Live report display is:")
+        self.w.displayLiveReportRadioGroup = vanilla.RadioGroup((159, 15, -15, 17), ["On", "Off"], isVertical=False, callback=self.displayLiveReportRadioGroupCallback)
+        self.w.displayLiveReportRadioGroup.set(not state)
 
         # test states
-        left = 15
-        width = 200
-        for group in ("glyph", "metrics", "contour", "segment", "point"):
-            top = 60
-            # title
-            title = group.title() + " Tests"
-            control = vanilla.TextBox((left, top, width, 17), title)
-            setattr(self.w, "testStateTitle_" + group, control)
-            top += 20
-            line = vanilla.HorizontalLine((left, top, width, 1))
-            setattr(self.w, "testStateLine_" + group, line)
-            top += 10
-            # check boxes
+        groupTitles = ["Glyph Tests", "Metrics Tests", "Contour Tests", "Segment Tests", "Point Tests"]
+        self.w.testStateBox = vanilla.Box((15, 60, -15, 190))
+        tabs = self.w.testStateBox.testStateTabs = vanilla.Tabs((0, 5, 0, 0), groupTitles, showTabs=False)
+        groups = [
+            ("glyph", tabs[0]),
+            ("metrics", tabs[1]),
+            ("contour", tabs[2]),
+            ("segment", tabs[3]),
+            ("point", tabs[4]),
+        ]
+        for group, tab in groups:
+            top = 15
             for identifier in reportOrder:
                for testIdentifier, testData in testRegistry.items():
                    if testIdentifier != identifier:
@@ -128,38 +128,39 @@ class GlyphNannyPrefsWindow(object):
                    if testData["level"] != group:
                        continue
                    state = getExtensionDefault(defaultKeyTestStates)[identifier]
-                   control = vanilla.CheckBox((left, top, width, 22), testData["title"], value=state, callback=self.testStateCheckBoxCallback)
-                   top += 22
+                   control = vanilla.CheckBox((15, top, -15, 22), testData["title"], value=state, callback=self.testStateCheckBoxCallback)
+                   top += 25
                    self.testStateControlToIdentifier[control] = identifier
-                   setattr(self.w, "testStateCheckBox_" + identifier, control)
-            left += width + 15
-
-        self.w.line2 = vanilla.HorizontalLine((15, 235, -15, 1))
+                   setattr(tab, "testStateCheckBox_" + identifier, control)
+        self.w.testStateTabSelector = vanilla.PopUpButton((72, 50, 120, 20), groupTitles, callback=self.testStateTabSelectorCallback)
 
         # colors
         colors = [
             ("Information", colorInform(), defaultKeyColorInform),
-            ("Review",      colorReview(), defaultKeyColorReview),
-            ("Insert",      colorInsert(), defaultKeyColorInsert),
-            ("Remove",      colorRemove(), defaultKeyColorRemove)
+            ("Review", colorReview(), defaultKeyColorReview),
+            ("Insert", colorInsert(), defaultKeyColorInsert),
+            ("Remove", colorRemove(), defaultKeyColorRemove)
         ]
-        left = 15
-        width = 200
+        top = 270
         for title, color, key in colors:
             title += " Color"
-            control = vanilla.ColorWell((left, 250, 70, 25), color=color, callback=self.noteColorColorWellCallback)
+            control = vanilla.ColorWell((15, top, 70, 25), color=color, callback=self.noteColorColorWellCallback)
             self.colorControlToKey[control] = key
             setattr(self.w, "colorWell_" + title, control)
-            control = vanilla.TextBox((left + 75, 253, 120, 17), title)
+            control = vanilla.TextBox((90, top + 3, -15, 17), title)
             setattr(self.w, "colorTitle_" + title, control)
-            left += width + 15
+            top += 32
 
         self.w.open()
 
-    def displayReportInGlyphViewCheckBoxCallback(self, sender):
-        state = sender.get()
+    def displayLiveReportRadioGroupCallback(self, sender):
+        state = not sender.get()
         setExtensionDefault(defaultKeyObserverVisibility, state)
         UpdateCurrentGlyphView()
+
+    def testStateTabSelectorCallback(self, sender):
+        tab = sender.get()
+        self.w.testStateBox.testStateTabs.set(tab)
 
     def testStateCheckBoxCallback(self, sender):
         identifier = self.testStateControlToIdentifier[sender]
@@ -1494,3 +1495,6 @@ if __name__ == "__main__":
                 unregisterGlyphNannyObserver(observer)
     # register it
     registerGlyphNannyObserver(glyphNannyObserver)
+    # if debugging, show the prefs window
+    if DEBUG:
+        GlyphNannyPrefsWindow()
