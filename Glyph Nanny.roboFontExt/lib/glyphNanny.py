@@ -1455,12 +1455,12 @@ def _unwrapPoint(pt):
 
 def _intersectLines((a1, a2), (b1, b2)):
     # adapted from: http://www.kevlindev.com/gui/math/intersection/Intersection.js
-    ua_t = (b2[0] - b1[0]) * (a1[1] - b1[1]) - (b2[1] - b1[1]) * (a1[0] - b1[0]);
-    ub_t = (a2[0] - a1[0]) * (a1[1] - b1[1]) - (a2[1] - a1[1]) * (a1[0] - b1[0]);
-    u_b  = (b2[1] - b1[1]) * (a2[0] - a1[0]) - (b2[0] - b1[0]) * (a2[1] - a1[1]);
+    ua_t = (b2[0] - b1[0]) * (a1[1] - b1[1]) - (b2[1] - b1[1]) * (a1[0] - b1[0])
+    ub_t = (a2[0] - a1[0]) * (a1[1] - b1[1]) - (a2[1] - a1[1]) * (a1[0] - b1[0])
+    u_b  = (b2[1] - b1[1]) * (a2[0] - a1[0]) - (b2[0] - b1[0]) * (a2[1] - a1[1])
     if u_b != 0:
-        ua = ua_t / u_b;
-        ub = ub_t / u_b;
+        ua = ua_t / float(u_b)
+        ub = ub_t / float(u_b)
         if 0 <= ua and ua <= 1 and 0 <= ub and ub <= 1:
             return a1[0] + ua * (a2[0] - a1[0]), a1[1] + ua * (a2[1] - a1[1])
         else:
@@ -1491,7 +1491,7 @@ def _getAngleOffset(angle, distance):
     B = math.radians(B)
     C = math.radians(C)
     b = (c * math.sin(B)) / math.sin(C)
-    return b
+    return round(b, 5)
 
 
 # -----------------

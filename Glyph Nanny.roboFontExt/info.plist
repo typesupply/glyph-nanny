@@ -40,6 +40,6 @@
 	<key>repository</key>
 	<string>typesupply/glyph-nanny</string>
 	<key>extensionPath</key>
-	<string>lib/glyphNanny.roboFontExt</string>
+	<string>glyphNanny.roboFontExt</string>
 </dict>
 </plist>
