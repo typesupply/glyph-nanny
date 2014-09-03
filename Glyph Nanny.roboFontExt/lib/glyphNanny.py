@@ -34,7 +34,7 @@ def registerGlyphNannyDefaults():
         defaultKeyObserverVisibility : False,
         defaultKeyTestStates : {}
     }
-    for key in testRegistry.keys():
+    for key in sorted(testRegistry.keys()):
         defaults[defaultKeyTestStates][key] = True
 
     try:
@@ -47,6 +47,13 @@ def registerGlyphNannyDefaults():
                     setExtensionDefault(k, v)
 
     registerExtensionsDefaults(defaults)
+
+    # handle nested
+    nested = getExtensionDefault(defaultKeyTestStates)
+    for key, default in defaults[defaultKeyTestStates].items():
+        if key not in nested:
+            nested[key] = default
+            setExtensionDefault(defaultKeyTestStates, nested)
 
 # ----------------
 # Drawing Observer
@@ -101,7 +108,7 @@ class GlyphNannyPrefsWindow(object):
         self.testStateControlToIdentifier = {}
         self.colorControlToKey = {}
 
-        self.w = vanilla.Window((264, 405), "Glyph Nanny Preferences")
+        self.w = vanilla.Window((264, 425), "Glyph Nanny Preferences")
 
         # global visibility
         state = getExtensionDefault(defaultKeyObserverVisibility)
@@ -119,7 +126,7 @@ class GlyphNannyPrefsWindow(object):
             ("Insert Something", colorInsert(), defaultKeyColorInsert),
             ("Remove Something", colorRemove(), defaultKeyColorRemove)
         ]
-        top = 270
+        top = 290
         for title, color, key in colors:
             control = vanilla.ColorWell((15, top, 70, 25), color=color, callback=self.noteColorColorWellCallback)
             self.colorControlToKey[control] = key
@@ -156,7 +163,7 @@ class GlyphNannyPrefsWindow(object):
 
 def _buildGlyphTestTabs(controller, viewTop):
     groupTitles = ["Glyph Tests", "Metrics Tests", "Contour Tests", "Segment Tests", "Point Tests"]
-    controller.w.testStateBox = vanilla.Box((15, viewTop + 10, -15, 190))
+    controller.w.testStateBox = vanilla.Box((15, viewTop + 10, -15, 210))
     tabs = controller.w.testStateBox.testStateTabs = vanilla.Tabs((0, 5, 0, 0), groupTitles, showTabs=False)
     groups = [
         ("glyph", tabs[0]),
@@ -189,12 +196,12 @@ class GlyphNannyTestFontsWindow(BaseWindowController):
 
     def __init__(self):
         self.testStateControlToIdentifier = {}
-        self.w = vanilla.Window((264, 295), "Glyph Nanny")
+        self.w = vanilla.Window((264, 315), "Glyph Nanny")
         # test states
         _buildGlyphTestTabs(self, 15)
         # test buttons
-        self.w.testCurrentButton = vanilla.Button((15, 230, -15, 20), "Test Current Font", callback=self.testCurrentButtonCallback)
-        self.w.testAllButton = vanilla.Button((15, 260, -15, 20), "Test All Open Fonts", callback=self.testAllButtonCallback)
+        self.w.testCurrentButton = vanilla.Button((15, 250, -15, 20), "Test Current Font", callback=self.testCurrentButtonCallback)
+        self.w.testAllButton = vanilla.Button((15, 280, -15, 20), "Test All Open Fonts", callback=self.testAllButtonCallback)
 
         self.w.open()
 
@@ -286,6 +293,7 @@ overlappingPoints
 pointsNearVerticalMetrics
 complexCurves
 crossedHandles
+unevenHandles
 straightLines
 unsmoothSmooths
 """.strip().splitlines()
@@ -308,6 +316,7 @@ extremePoints
 strayPoints
 unnecessaryPoints
 unnecessaryHandles
+unevenHandles
 overlappingPoints
 """.strip().splitlines()
 
@@ -1310,6 +1319,69 @@ registerTest(
     drawingFunction=drawUnnecessaryHandles
 )
 
+# Uneven Handles
+
+def testForUnevenHandles(glyph):
+    """
+    Handles should share the workload as evenly as possible.
+    """
+    unevenHandles = {}
+    for index, contour in enumerate(glyph):
+        prevPoint = contour[-1].onCurve
+        for segment in contour:
+            if segment.type == "curve":
+                pt0 = _unwrapPoint(prevPoint)
+                pt1, pt2 = [_unwrapPoint(pt) for pt in segment.offCurve]
+                pt3 = _unwrapPoint(segment.onCurve)
+                angle1 = _calcAngle(pt0, pt1) - 90
+                line1 = _createLineThroughPoint(pt0, angle1)
+                angle2 = _calcAngle(pt2, pt3) - 90
+                line2 = _createLineThroughPoint(pt3, angle2)
+                intersection = _intersectLines(line1, line2)
+                if intersection is not None:
+                    triangle1 = (intersection, pt0, pt1)
+                    triangle2 = (intersection, pt2, pt3)
+                    area1 = _getAreaOfTriangle(*triangle1)
+                    area2 = _getAreaOfTriangle(*triangle2)
+                    if area1 == 0 or area2 == 0:
+                        pass
+                    else:
+                        diff = max((area1, area2)) / float(min((area1, area2)))
+                        if diff > 1.3:
+                            if index not in unevenHandles:
+                                unevenHandles[index] = []
+                            unevenHandles[index].append((pt0, pt1, pt2, pt3))
+            prevPoint = segment.onCurve
+    return unevenHandles
+
+def drawUnevenHandles(contours, scale, glyph):
+    color = colorReview()
+    color.set()
+    for index, segments in contours.items():
+        for pt0, pt1, pt2, pt3 in segments:
+            path1 = NSBezierPath.bezierPath()
+            path2 = NSBezierPath.bezierPath()
+            path1.moveToPoint_(pt0)
+            path1.lineToPoint_(pt1)
+            path1.moveToPoint_(pt2)
+            path1.lineToPoint_(pt3)
+            path2.moveToPoint_(pt1)
+            path2.lineToPoint_(pt2)
+            path1.setLineWidth_(3 * scale)
+            path2.setLineWidth_(scale)
+            path1.stroke()
+            path2.stroke()
+            mid = calcMid(pt1, pt2)
+            drawString(mid, "Uneven Handles", 10, scale, color, backgroundColor=NSColor.whiteColor())
+
+registerTest(
+    identifier="unevenHandles",
+    level="segment",
+    title="Uneven Handles",
+    description="One or more curves has uneven handles.",
+    testFunction=testForUnevenHandles,
+    drawingFunction=drawUnevenHandles
+)
 
 # -----------------
 # Point Level Tests
@@ -1493,6 +1565,25 @@ def _getAngleOffset(angle, distance):
     b = (c * math.sin(B)) / math.sin(C)
     return b
 
+def _createLineThroughPoint(pt, angle):
+    angle = math.radians(angle)
+    length = 100000
+    x1 = math.cos(angle) * -length + pt[0]
+    y1 = math.sin(angle) * -length + pt[1]
+    x2 = math.cos(angle) * length + pt[0]
+    y2 = math.sin(angle) * length + pt[1]
+    return (x1, y1), (x2, y2)
+
+def _getLineLength(pt1, pt2):
+    return math.hypot(pt1[0] - pt2[0], pt1[1] - pt2[1])
+
+def _getAreaOfTriangle(pt1, pt2, pt3):
+    a = _getLineLength(pt1, pt2)
+    b = _getLineLength(pt2, pt3)
+    c = _getLineLength(pt3, pt1)
+    s = (a + b + c) / 2.0
+    area = math.sqrt(s * (s - a) * (s - b) * (s - c))
+    return area
 
 # -----------------
 # Drawing Utilities
