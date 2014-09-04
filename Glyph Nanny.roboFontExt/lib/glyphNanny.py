@@ -188,6 +188,16 @@ def _buildGlyphTestTabs(controller, viewTop):
     controller.w.testStateTabSelector = vanilla.PopUpButton((72, viewTop, 120, 20), groupTitles, callback=controller.testStateTabSelectorCallback)
 
 
+# --------------
+# Prefs Shortcut
+# --------------
+
+def toggleObserverVisibility():
+    state = not getExtensionDefault(defaultKeyObserverVisibility)
+    setExtensionDefault(defaultKeyObserverVisibility, state)
+    UpdateCurrentGlyphView()
+
+
 # ----------------
 # Test Font Window
 # ----------------

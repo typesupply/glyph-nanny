@@ -6,17 +6,28 @@
 	<array>
 		<dict>
 			<key>path</key>
-			<string>glyphNannyShowPrefs.py</string>
+			<string>glyphNannyToggleObserverVisibility.py</string>
 			<key>preferredName</key>
-			<string>Preferences</string>
+			<string>Show/Hide Live Report</string>
 			<key>shortKey</key>
-			<string></string>
+			<array>
+				<integer>262144</integer>
+				<string>r</string>
+			</array>
 		</dict>
 		<dict>
 			<key>path</key>
 			<string>glyphNannyShowFontTester.py</string>
 			<key>preferredName</key>
-			<string>Test Fonts</string>
+			<string>Show Full Font Report</string>
+			<key>shortKey</key>
+			<string></string>
+		</dict>
+		<dict>
+			<key>path</key>
+			<string>glyphNannyShowPrefs.py</string>
+			<key>preferredName</key>
+			<string>Edit Preferences</string>
 			<key>shortKey</key>
 			<string></string>
 		</dict>
