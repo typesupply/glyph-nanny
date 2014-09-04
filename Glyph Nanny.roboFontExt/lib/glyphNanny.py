@@ -1,7 +1,7 @@
 import os
 import re
 import math
-from fontTools.misc.bezierTools import splitCubicAtT
+from fontTools.misc import bezierTools as ftBezierTools
 from fontTools.agl import AGL2UV
 from fontTools.pens.cocoaPen import CocoaPen
 from robofab.pens.digestPen import DigestPointPen
@@ -14,7 +14,7 @@ from mojo.roboFont import version as roboFontVersion
 from mojo.UI import UpdateCurrentGlyphView
 from mojo.events import addObserver, removeObserver
 from mojo.extensions import getExtensionDefault, setExtensionDefault, getExtensionDefaultColor, setExtensionDefaultColor
-from lib.tools import bezierTools
+from lib.tools import bezierTools as rfBezierTools
 
 DEBUG = False
 
@@ -282,6 +282,11 @@ def colorReview():
         color = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
     return color
 
+def modifyColorAlpha(color, a):
+    r = color.redComponent()
+    g = color.greenComponent()
+    b = color.blueComponent()
+    return NSColor.colorWithCalibratedRed_green_blue_alpha_(r, g, b, a)
 
 # ------
 # Orders
@@ -1169,7 +1174,7 @@ def drawComplexCurves(contours, scale, glyph):
             path.setLineWidth_(3 * scale)
             path.setLineCapStyle_(NSRoundLineCapStyle)
             path.stroke()
-            mid = splitCubicAtT(pt0, pt1, pt2, pt3, 0.5)[0][-1]
+            mid = ftBezierTools.splitCubicAtT(pt0, pt1, pt2, pt3, 0.5)[0][-1]
             drawString(mid, "Complex Curve", 10, scale, color, backgroundColor=NSColor.whiteColor())
 
 registerTest(
@@ -1341,61 +1346,79 @@ def testForUnevenHandles(glyph):
         prevPoint = contour[-1].onCurve
         for segment in contour:
             if segment.type == "curve":
-                # create perpendicular lines off
-                # of each off curve
-                pt0 = _unwrapPoint(prevPoint)
-                pt1, pt2 = [_unwrapPoint(pt) for pt in segment.offCurve]
-                pt3 = _unwrapPoint(segment.onCurve)
-                angle1 = _calcAngle(pt0, pt1) - 90
-                line1 = _createLineThroughPoint(pt0, angle1)
-                angle2 = _calcAngle(pt2, pt3) - 90
-                line2 = _createLineThroughPoint(pt3, angle2)
-                # find the intersection of these lines
-                intersection = _intersectLines(line1, line2)
-                if intersection is not None:
+                # create rays perpendicular to the
+                # angle between the on and off
+                # through the on
+                on1 = _unwrapPoint(prevPoint)
+                off1, off2 = [_unwrapPoint(pt) for pt in segment.offCurve]
+                on2 = _unwrapPoint(segment.onCurve)
+                curve = (on1, off1, off2, on2)
+                off1Angle = _calcAngle(on1, off1) - 90
+                on1Ray = _createLineThroughPoint(on1, off1Angle)
+                off2Angle = _calcAngle(off2, on2) - 90
+                on2Ray = _createLineThroughPoint(on2, off2Angle)
+                # find the intersection of the rays
+                rayIntersection = _intersectLines(on1Ray, on2Ray)
+                if rayIntersection is not None:
                     # draw a line between the off curves and the intersection
                     # and find out where these lines intersect the curve
-                    segmentIntersection1 = _getSegmentIntersection(pt1, intersection, (pt0, pt1, pt2, pt3))
-                    segmentIntersection2 = _getSegmentIntersection(pt2, intersection, (pt0, pt1, pt2, pt3))
-                    if segmentIntersection1 is not None and segmentIntersection2 is not None:
-                        # assemble the off curves and their intersetions into lines
-                        line1 = (pt1, segmentIntersection1)
-                        line2 = (pt2, segmentIntersection2)
+                    off1Intersection = _getLineCurveIntersection((off1, rayIntersection), curve)
+                    off2Intersection = _getLineCurveIntersection((off2, rayIntersection), curve)
+                    if off1Intersection is not None and off2Intersection is not None:
+                        off1IntersectionPoint = (off1Intersection.points[0].x, off1Intersection.points[0].y)
+                        off2IntersectionPoint = (off2Intersection.points[0].x, off2Intersection.points[0].y)
+                        # assemble the off curves and their intersections into lines
+                        off1Line = (off1, off1IntersectionPoint)
+                        off2Line = (off2, off2IntersectionPoint)
                         # measure and compare these
-                        length1, length2 = sorted((_getLineLength(*line1), _getLineLength(*line2)))
-                        # if they are not both very short
-                        # calculate the ratio
+                        # if they are not both very short calculate the ratio
+                        length1, length2 = sorted((_getLineLength(*off1Line), _getLineLength(*off2Line)))
                         if length1 >= 3 and length2 >= 3:
-                            r = length2 / float(length1)
+                            ratio = length2 / float(length1)
                             # if outside acceptable range, flag
-                            if r > 1.5:
+                            if ratio > 1.5:
+                                off1Shape = _getUnevenHandleShape(on1, off1, off2, on2, off1Intersection, on1, off1IntersectionPoint, off1)
+                                off2Shape = _getUnevenHandleShape(on1, off1, off2, on2, off2Intersection, off2IntersectionPoint, on2, off2)
                                 if index not in unevenHandles:
                                     unevenHandles[index] = []
-                                unevenHandles[index].append((line1, line2))
+                                unevenHandles[index].append((off1, off2, off1Shape, off2Shape))
             prevPoint = segment.onCurve
     return unevenHandles
 
+def _getUnevenHandleShape(pt0, pt1, pt2, pt3, intersection, start, end, off):
+    splitSegments = ftBezierTools.splitCubicAtT(pt0, pt1, pt2, pt3, *intersection.t)
+    curves = []
+    for segment in splitSegments:
+        if _roundPoint(segment[0]) != _roundPoint(start) and not curves:
+            continue
+        curves.append(segment[1:])
+        if _roundPoint(segment[-1]) == _roundPoint(end):
+            break
+    return curves + [off, start]
+
 def drawUnevenHandles(contours, scale, glyph):
-    color = colorReview()
-    color.set()
-    for index, segments in contours.items():
-        for line1, line2 in segments:
-            path1 = NSBezierPath.bezierPath()
-            path2 = NSBezierPath.bezierPath()
-            path1.moveToPoint_(line1[0])
-            path1.lineToPoint_(line1[1])
-            path1.moveToPoint_(line2[0])
-            path1.lineToPoint_(line2[1])
-            mid1 = calcMid(*line1)
-            mid2 = calcMid(*line2)
-            path2.moveToPoint_(mid1)
-            path2.lineToPoint_(mid2)
-            path1.setLineWidth_(3 * scale)
-            path2.setLineWidth_(scale)
-            path1.stroke()
-            path2.stroke()
-            mid = calcMid(mid1, mid2)
-            drawString(mid, "Uneven Handles", 10, scale, color, backgroundColor=NSColor.whiteColor())
+    strokeColor = colorReview()
+    fillColor = modifyColorAlpha(strokeColor, 0.15)
+    for index, groups in contours.items():
+        for off1, off2, shape1, shape2 in groups:
+            fillColor.set()
+            path = NSBezierPath.bezierPath()
+            for shape in (shape1, shape2):
+                path.moveToPoint_(shape[-1])
+                for curve in shape[:-2]:
+                    pt1, pt2, pt3 = curve
+                    path.curveToPoint_controlPoint1_controlPoint2_(pt3, pt1, pt2)
+                path.lineToPoint_(shape[-2])
+                path.lineToPoint_(shape[-1])
+            path.fill()
+            strokeColor.set()
+            path = NSBezierPath.bezierPath()
+            path.moveToPoint_(off1)
+            path.lineToPoint_(off2)
+            path.setLineWidth_(scale)
+            path.stroke()
+            mid = calcMid(off1, off2)
+            drawString(mid, "Uneven Handles", 10, scale, strokeColor, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="unevenHandles",
@@ -1548,6 +1571,9 @@ def _getOnCurves(contour):
 def _unwrapPoint(pt):
     return pt.x, pt.y
 
+def _roundPoint(pt):
+    return round(pt[0]), round(pt[1])
+
 def _intersectLines((a1, a2), (b1, b2)):
     # adapted from: http://www.kevlindev.com/gui/math/intersection/Intersection.js
     ua_t = (b2[0] - b1[0]) * (a1[1] - b1[1]) - (b2[1] - b1[1]) * (a1[0] - b1[0]);
@@ -1608,13 +1634,10 @@ def _getAreaOfTriangle(pt1, pt2, pt3):
     area = math.sqrt(s * (s - a) * (s - b) * (s - c))
     return area
 
-def _getSegmentIntersection(bcp, intersection, curve):
-    pt0, pt1, pt2, pt3 = curve
-    intersection = bezierTools.intersectCubicLine(pt0, pt1, pt2, pt3, bcp, intersection)
-    if intersection:
-        point = intersection.points[0]
-        return point.x, point.y
-    return None
+def _getLineCurveIntersection(line, curve):
+    points = curve + line
+    intersection = rfBezierTools.intersectCubicLine(*points)
+    return intersection
 
 # -----------------
 # Drawing Utilities
