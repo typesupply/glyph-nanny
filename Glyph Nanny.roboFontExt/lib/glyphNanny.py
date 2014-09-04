@@ -14,6 +14,7 @@ from mojo.roboFont import version as roboFontVersion
 from mojo.UI import UpdateCurrentGlyphView
 from mojo.events import addObserver, removeObserver
 from mojo.extensions import getExtensionDefault, setExtensionDefault, getExtensionDefaultColor, setExtensionDefaultColor
+from lib.tools import bezierTools
 
 DEBUG = False
 
@@ -1340,6 +1341,8 @@ def testForUnevenHandles(glyph):
         prevPoint = contour[-1].onCurve
         for segment in contour:
             if segment.type == "curve":
+                # create perpendicular lines off
+                # of each off curve
                 pt0 = _unwrapPoint(prevPoint)
                 pt1, pt2 = [_unwrapPoint(pt) for pt in segment.offCurve]
                 pt3 = _unwrapPoint(segment.onCurve)
@@ -1347,20 +1350,28 @@ def testForUnevenHandles(glyph):
                 line1 = _createLineThroughPoint(pt0, angle1)
                 angle2 = _calcAngle(pt2, pt3) - 90
                 line2 = _createLineThroughPoint(pt3, angle2)
+                # find the intersection of these lines
                 intersection = _intersectLines(line1, line2)
                 if intersection is not None:
-                    triangle1 = (intersection, pt0, pt1)
-                    triangle2 = (intersection, pt2, pt3)
-                    area1 = _getAreaOfTriangle(*triangle1)
-                    area2 = _getAreaOfTriangle(*triangle2)
-                    if area1 == 0 or area2 == 0:
-                        pass
-                    else:
-                        diff = max((area1, area2)) / float(min((area1, area2)))
-                        if diff > 1.3:
-                            if index not in unevenHandles:
-                                unevenHandles[index] = []
-                            unevenHandles[index].append((pt0, pt1, pt2, pt3))
+                    # draw a line between the off curves and the intersection
+                    # and find out where these lines intersect the curve
+                    segmentIntersection1 = _getSegmentIntersection(pt1, intersection, (pt0, pt1, pt2, pt3))
+                    segmentIntersection2 = _getSegmentIntersection(pt2, intersection, (pt0, pt1, pt2, pt3))
+                    if segmentIntersection1 is not None and segmentIntersection2 is not None:
+                        # assemble the off curves and their intersetions into lines
+                        line1 = (pt1, segmentIntersection1)
+                        line2 = (pt2, segmentIntersection2)
+                        # measure and compare these
+                        length1, length2 = sorted((_getLineLength(*line1), _getLineLength(*line2)))
+                        # if they are not both very short
+                        # calculate the ratio
+                        if length1 >= 3 and length2 >= 3:
+                            r = length2 / float(length1)
+                            # if outside acceptable range, flag
+                            if r > 1.5:
+                                if index not in unevenHandles:
+                                    unevenHandles[index] = []
+                                unevenHandles[index].append((line1, line2))
             prevPoint = segment.onCurve
     return unevenHandles
 
@@ -1368,20 +1379,22 @@ def drawUnevenHandles(contours, scale, glyph):
     color = colorReview()
     color.set()
     for index, segments in contours.items():
-        for pt0, pt1, pt2, pt3 in segments:
+        for line1, line2 in segments:
             path1 = NSBezierPath.bezierPath()
             path2 = NSBezierPath.bezierPath()
-            path1.moveToPoint_(pt0)
-            path1.lineToPoint_(pt1)
-            path1.moveToPoint_(pt2)
-            path1.lineToPoint_(pt3)
-            path2.moveToPoint_(pt1)
-            path2.lineToPoint_(pt2)
+            path1.moveToPoint_(line1[0])
+            path1.lineToPoint_(line1[1])
+            path1.moveToPoint_(line2[0])
+            path1.lineToPoint_(line2[1])
+            mid1 = calcMid(*line1)
+            mid2 = calcMid(*line2)
+            path2.moveToPoint_(mid1)
+            path2.lineToPoint_(mid2)
             path1.setLineWidth_(3 * scale)
             path2.setLineWidth_(scale)
             path1.stroke()
             path2.stroke()
-            mid = calcMid(pt1, pt2)
+            mid = calcMid(mid1, mid2)
             drawString(mid, "Uneven Handles", 10, scale, color, backgroundColor=NSColor.whiteColor())
 
 registerTest(
@@ -1594,6 +1607,14 @@ def _getAreaOfTriangle(pt1, pt2, pt3):
     s = (a + b + c) / 2.0
     area = math.sqrt(s * (s - a) * (s - b) * (s - c))
     return area
+
+def _getSegmentIntersection(bcp, intersection, curve):
+    pt0, pt1, pt2, pt3 = curve
+    intersection = bezierTools.intersectCubicLine(pt0, pt1, pt2, pt3, bcp, intersection)
+    if intersection:
+        point = intersection.points[0]
+        return point.x, point.y
+    return None
 
 # -----------------
 # Drawing Utilities

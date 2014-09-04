@@ -1,4 +1,5 @@
 import math
+from lib.tools import bezierTools
 
 ###
 
@@ -53,35 +54,6 @@ def _createLineThroughPoint(pt, angle):
     y2 = math.sin(angle) * length + pt[1]
     return (x1, y1), (x2, y2)
 
-
-    angle = math.radians(angle)
-    point1 = pt
-    point2 = pt[0] + math.cos(angle), pt[1] + math.sin(angle)
-    return point1, point2
-
-    return
-
-    d = 1000
-    angle = math.radians(angle)
-    x1, y1 = pt
-    x2 = (pt[0] + math.cos(angle)) + d
-    y2 = (pt[1] + math.sin(angle)) + d
-    return (x1, y1), (x2, y2)
-
-    angle = math.radians(angle)
-    length = 10000
-    x1 = pt[0]
-    y1 = pt[1]
-    x2 = x + length * math.sin(angle)
-    y2 = y + length * math.cos(angle)
-    return (x1, y1), (x2, y2)
-
-    return
-    o = _getAngleOffset(angle, 100000)
-    pt1 = (pt[0] + 100000, pt[1] + o)
-    pt2 = (pt[0] - 100000, pt[1] - o)
-    return pt1, pt2
-
 def _getLineLength(pt1, pt2):
     return math.hypot(pt1[0] - pt2[0], pt1[1] - pt2[1])
 
@@ -93,6 +65,15 @@ def _getAreaOfTriangle(pt1, pt2, pt3):
     area = math.sqrt(s * (s - a) * (s - b) * (s - c))
     return area
 
+def _getSegmentIntersection(bcp, intersection, curve):
+    pt0, pt1, pt2, pt3 = curve
+    intersection = bezierTools.intersectCubicLine(pt0, pt1, pt2, pt3, bcp, intersection)
+    if intersection:
+        point = intersection.points[0]
+        return point.x, point.y
+    return None
+
+
 ###
 
 _points = """
@@ -102,8 +83,8 @@ offCurve 528 487
 curve 643 418
 """
 points = []
-for line in _points.strip().splitlines():
-    c, x, y = line.split(" ")
+for l in _points.strip().splitlines():
+    c, x, y = l.split(" ")
     x = int(x)
     y = int(y)
     points.append((x, y))
@@ -137,21 +118,31 @@ line2 = _createLineThroughPoint(pt3, angle2)
 
 stroke(1, 0, 0, 1)
 strokeWidth(1)
-newPath()
-moveTo(line1[0])
-lineTo(line1[1])
-drawPath()
-newPath()
-moveTo(line2[0])
-lineTo(line2[1])
-drawPath()
+line(*line1)
+line(*line2)
 
-# intersection = _intersectLines(line1, line2)
 
-# x, y = intersection
-# stroke(None)
-# fill(1, 0, 0, 0.75)
-# oval(x - 5, y - 5, 10, 10)
+intersection = _intersectLines(line1, line2)
+
+x, y = intersection
+stroke(None)
+fill(1, 0, 0, 0.75)
+oval(x - 5, y - 5, 10, 10)
+
+segmentIntersection1 = _getSegmentIntersection(pt1, intersection, (pt0, pt1, pt2, pt3))
+segmentIntersection2 = _getSegmentIntersection(pt2, intersection, (pt0, pt1, pt2, pt3))
+
+x, y = segmentIntersection1
+oval(x - 5, y - 5, 10, 10)
+
+x, y = segmentIntersection2
+oval(x - 5, y - 5, 10, 10)
+
+fill(None)
+stroke(1, 0, 0, 1)
+
+line(pt1, segmentIntersection1)
+line(pt2, segmentIntersection2)
 
 # # make the triangles
 
