@@ -51,6 +51,6 @@
 	<key>repository</key>
 	<string>typesupply/glyph-nanny</string>
 	<key>extensionPath</key>
-	<string>lib/glyphNanny.roboFontExt</string>
+	<string>Glyph Nanny.roboFontExt</string>
 </dict>
 </plist>
