@@ -1365,23 +1365,24 @@ def testForUnevenHandles(glyph):
                     off1Intersection = _getLineCurveIntersection((off1, rayIntersection), curve)
                     off2Intersection = _getLineCurveIntersection((off2, rayIntersection), curve)
                     if off1Intersection is not None and off2Intersection is not None:
-                        off1IntersectionPoint = (off1Intersection.points[0].x, off1Intersection.points[0].y)
-                        off2IntersectionPoint = (off2Intersection.points[0].x, off2Intersection.points[0].y)
-                        # assemble the off curves and their intersections into lines
-                        off1Line = (off1, off1IntersectionPoint)
-                        off2Line = (off2, off2IntersectionPoint)
-                        # measure and compare these
-                        # if they are not both very short calculate the ratio
-                        length1, length2 = sorted((_getLineLength(*off1Line), _getLineLength(*off2Line)))
-                        if length1 >= 3 and length2 >= 3:
-                            ratio = length2 / float(length1)
-                            # if outside acceptable range, flag
-                            if ratio > 1.5:
-                                off1Shape = _getUnevenHandleShape(on1, off1, off2, on2, off1Intersection, on1, off1IntersectionPoint, off1)
-                                off2Shape = _getUnevenHandleShape(on1, off1, off2, on2, off2Intersection, off2IntersectionPoint, on2, off2)
-                                if index not in unevenHandles:
-                                    unevenHandles[index] = []
-                                unevenHandles[index].append((off1, off2, off1Shape, off2Shape))
+                        if off1Intersection.points and off2Intersection.points:
+                            off1IntersectionPoint = (off1Intersection.points[0].x, off1Intersection.points[0].y)
+                            off2IntersectionPoint = (off2Intersection.points[0].x, off2Intersection.points[0].y)
+                            # assemble the off curves and their intersections into lines
+                            off1Line = (off1, off1IntersectionPoint)
+                            off2Line = (off2, off2IntersectionPoint)
+                            # measure and compare these
+                            # if they are not both very short calculate the ratio
+                            length1, length2 = sorted((_getLineLength(*off1Line), _getLineLength(*off2Line)))
+                            if length1 >= 3 and length2 >= 3:
+                                ratio = length2 / float(length1)
+                                # if outside acceptable range, flag
+                                if ratio > 1.5:
+                                    off1Shape = _getUnevenHandleShape(on1, off1, off2, on2, off1Intersection, on1, off1IntersectionPoint, off1)
+                                    off2Shape = _getUnevenHandleShape(on1, off1, off2, on2, off2Intersection, off2IntersectionPoint, on2, off2)
+                                    if index not in unevenHandles:
+                                        unevenHandles[index] = []
+                                    unevenHandles[index].append((off1, off2, off1Shape, off2Shape))
             prevPoint = segment.onCurve
     return unevenHandles
 
