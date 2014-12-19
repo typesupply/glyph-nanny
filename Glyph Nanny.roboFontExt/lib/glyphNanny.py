@@ -1125,10 +1125,10 @@ def drawUnsmoothSmooths(contours, scale, glyph):
         for pt1, pt2, pt3 in points:
             path.moveToPoint_(pt1)
             path.lineToPoint_(pt3)
-        path.setLineWidth_(2 * scale)
-        path.stroke()
-        x, y = pt2
-        drawString((x, y - (10 * scale)), "Unsmooth Smooth", 10, scale, color, backgroundColor=NSColor.whiteColor())
+            path.setLineWidth_(2 * scale)
+            path.stroke()
+            x, y = pt2
+            drawString((x, y - (10 * scale)), "Unsmooth Smooth", 10, scale, color, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="unsmoothSmooths",
