@@ -651,6 +651,10 @@ def testComponentMetrics(glyph):
     # no components
     if len(components) == 0:
         return
+    boxes = [c.box for c in components]
+    # a component has no contours
+    if None in boxes:
+        return
     report = dict(leftMessage=None, rightMessage=None, left=None, right=None, width=glyph.width, box=glyph.box)
     problem = False
     if len(components) > 1:
