@@ -1450,6 +1450,10 @@ def testForStrayPoints(glyph):
             pt = contour[0].onCurve
             pt = (pt.x, pt.y)
             strayPoints[index] = pt
+    for index, anchor in enumerate(glyph.anchors):
+        if anchor.name == "":
+            pt = (anchor.x, anchor.y)
+            strayPoints[index+1+len(strayPoints)] = pt
     return strayPoints
 
 def drawStrayPoints(contours, scale, glyph):
