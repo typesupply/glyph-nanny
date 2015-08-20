@@ -16,7 +16,7 @@ from mojo.events import addObserver, removeObserver
 from mojo.extensions import getExtensionDefault, setExtensionDefault, getExtensionDefaultColor, setExtensionDefaultColor
 from lib.tools import bezierTools as rfBezierTools
 
-DEBUG = False
+DEBUG = True
 
 # --------
 # Defaults
@@ -294,7 +294,6 @@ def modifyColorAlpha(color, a):
 
 reportOrder = """
 unicodeValue
-contourCount
 componentMetrics
 ligatureMetrics
 metricsSymmetry
@@ -316,7 +315,6 @@ unsmoothSmooths
 
 drawingOrder = """
 unicodeValue
-contourCount
 componentMetrics
 ligatureMetrics
 metricsSymmetry
@@ -463,9 +461,6 @@ def drawTextReport(report, scale, glyph):
     r = report.get("unicodeValue")
     if r:
         text += r
-    r = report.get("contourCount")
-    if r:
-        text += r
     if text:
         text = "\n".join(text)
         x = 50
@@ -519,30 +514,6 @@ registerTest(
     title="Unicode Value",
     description="Unicode value may have problems.",
     testFunction=testUnicodeValue,
-    drawingFunction=None
-)
-
-
-# Contour Count
-
-def testContourCount(glyph):
-    """
-    There shouldn't be too many overlapping contours.
-    """
-    report = []
-    count = len(glyph)
-    test = glyph.copy()
-    test.removeOverlap()
-    if count - len(test) > 2:
-        report.append("This glyph has a unusally high number of overlapping contours.")
-    return report
-
-registerTest(
-    identifier="contourCount",
-    level="glyph",
-    title="Contour Count",
-    description="There are an unusual number of contours.",
-    testFunction=testContourCount,
     drawingFunction=None
 )
 
