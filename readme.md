@@ -7,3 +7,6 @@ This tool provides live feedback about the technical quality of a glyph. The goa
 If you want to turn the display on or off, or edit the list of tests performed, look under Extensions > Glyph Nanny in the application menu.
 
 Also located under Extensions > Glyph Nanny in the application menu is an option for testing an entire font.
+
+## Versions
+
