@@ -539,11 +539,13 @@ def testStemWidths(glyph):
     if vStems:
         vProblems = _findStems(glyph, vStems, "v")
     # report
-    stemProblems = dict(
-        h=hProblems,
-        v=vProblems
-    )
-    return stemProblems
+    if hProblems or vProblems:
+        stemProblems = dict(
+            h=hProblems,
+            v=vProblems
+        )
+        return stemProblems
+    return None
 
 def drawStemWidths(data, scale, glyph):
     hProblems = data["h"]
@@ -634,7 +636,7 @@ def _findStems(glyph, targetStems, stemDirection):
             if segment.type == "curve" and previous.type == "curve":
                 bcp1 = _unwrapPoint(previous[1])
                 bcp2 = _unwrapPoint(segment[-1])
-                if bcp1[primaryCoordinate] == bcp1[primaryCoordinate]:
+                if bcp1[primaryCoordinate] == bcp2[primaryCoordinate]:
                     angle = _calcAngle(bcp1, bcp2)
                     p = bcp1[primaryCoordinate]
                     s1 = bcp1[secondaryCoordinate]
