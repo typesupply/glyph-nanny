@@ -10,3 +10,17 @@ Also located under Extensions > Glyph Nanny in the application menu is an option
 
 ## Versions
 
+### 0.3 (not yet released)
+
+- Test for unnamed anchors.
+- Test for stem width inconsistency. This uses the Stem Snap values defined in the PostScript hinting settings to determine the desired stem widths.
+- Removed the "unusually high number of contours" test. It was very slow.
+
+
+### 0.2
+
+Minor bug fixes.
+
+### 0.1
+
+Initial version.
