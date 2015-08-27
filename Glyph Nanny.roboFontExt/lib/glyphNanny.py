@@ -304,6 +304,7 @@ smallContours
 openContours
 duplicateContours
 extremePoints
+curveSymmetry
 unnecessaryPoints
 unnecessaryHandles
 overlappingPoints
@@ -330,6 +331,7 @@ straightLines
 duplicateContours
 openContours
 extremePoints
+curveSymmetry
 strayPoints
 unnecessaryPoints
 unnecessaryHandles
@@ -1146,6 +1148,154 @@ registerTest(
     testFunction=testForExtremePoints,
     drawingFunction=drawExtremePoints
 )
+
+# Symmetrical Curves
+
+def testCurveSymmetry(glyph):
+    slightlyAssymetricalCurves = set()
+    for contour in glyph:
+        # gather pairs of curves that could potentially be related
+        curvePairs = set()
+        for index, segment in enumerate(contour):
+            # curve + h/v line + curve
+            if segment.type == "line":
+                prev = index - 1
+                next = index + 1
+                if next == len(contour):
+                    next = 0
+                prevSegment = contour[prev]
+                nextSegment = contour[next]
+                if prevSegment.type == "curve" and nextSegment.type == "curve":
+                    px = prevSegment[-1].x
+                    py = prevSegment[-1].y
+                    x = segment[-1].x
+                    y = segment[-1].y
+                    if px == x or py == y:
+                        prevPrevSegment = contour[prev - 1]
+                        curvePairs.add(
+                            (
+                                (
+                                    (prevPrevSegment[-1].x, prevPrevSegment[-1].y),
+                                    (prevSegment[0].x, prevSegment[0].y),
+                                    (prevSegment[1].x, prevSegment[1].y),
+                                    (prevSegment[2].x, prevSegment[2].y)
+                                ),
+                                (
+                                    (segment[-1].x, segment[-1].y),
+                                    (nextSegment[0].x, nextSegment[0].y),
+                                    (nextSegment[1].x, nextSegment[1].y),
+                                    (nextSegment[2].x, nextSegment[2].y)
+                                )
+                            )
+                        )
+            # curve + curve
+            elif segment.type == "curve":
+                prev = index - 1
+                prevSegment = contour[prev]
+                if prevSegment.type == "curve":
+                    prevPrevSegment = contour[prev - 1]
+                    curvePairs.add(
+                        (
+                            (
+                                (prevPrevSegment[-1].x, prevPrevSegment[-1].y),
+                                (prevSegment[0].x, prevSegment[0].y),
+                                (prevSegment[1].x, prevSegment[1].y),
+                                (prevSegment[2].x, prevSegment[2].y)
+                            ),
+                            (
+                                (prevSegment[2].x, prevSegment[2].y),
+                                (segment[0].x, segment[0].y),
+                                (segment[1].x, segment[1].y),
+                                (segment[2].x, segment[2].y)
+                            )
+                        )
+                    )
+        # relativize the pairs and compare
+        for curve1, curve2 in curvePairs:
+            curve1Compare = _relativizeCurve(curve1)
+            curve2Compare = _relativizeCurve(curve2)
+            if curve1 is None or curve2 is None:
+                continue
+            if curve1Compare.closeTo(curve2Compare):
+                curves = sorted((curve1, curve2))
+                slightlyAssymetricalCurves.add(curves)
+    # done
+    if not slightlyAssymetricalCurves:
+        return None
+    return slightlyAssymetricalCurves
+
+def drawCurveSymmetry(data, scale, glyph):
+    pass
+
+registerTest(
+    identifier="curveSymmetry",
+    level="contour",
+    title="Curve Symmetry",
+    description="One or more curve pairs are slightly assymetrical.",
+    testFunction=testCurveSymmetry,
+    drawingFunction=drawCurveSymmetry
+)
+
+
+
+def _relativizeCurve(curve):
+    pt0, pt1, pt2, pt3 = curve
+    # bcps aren't horizontal or vertical
+    if (pt0[0] != pt1[0]) and (pt0[1] != pt1[1]):
+        return None
+    if (pt3[0] != pt2[0]) and (pt3[1] != pt2[1]):
+        return None
+    # xxx validate that the bcps aren't backwards here
+    w = abs(pt3[0] - pt0[0])
+    h = abs(pt3[1] - pt0[1])
+    bw = None
+    bh = None
+    # pt0 -> pt1 is vertical
+    if pt0[0] == pt1[0]:
+        bh = abs(pt1[1] - pt0[1])
+    # pt0 -> pt1 is horizontal
+    elif pt0[1] == pt1[1]:
+        bw = abs(pt1[0] - pt0[0])
+    # pt2 -> pt3 is vertical
+    if pt2[0] == pt3[0]:
+        bh = abs(pt3[1] - pt2[1])
+    # pt2 -> pt3 is horizontal
+    elif pt2[1] == pt3[1]:
+        bw = abs(pt3[0] - pt2[0])
+    # safety
+    if bw is None or bh is None:
+        return None
+    # done
+    curve = _RelativeCurve((w, h, bw, bh), 5, 10)
+    return curve
+
+
+class _RelativeCurve(object):
+
+    def __init__(self, curve, sizeThreshold, bcpThreshold):
+        self.w, self.h, self.bcpw, self.bcph = curve
+        self.sizeThreshold = sizeThreshold
+        self.bcpThreshold = bcpThreshold
+    
+    def closeTo(self, other):
+        # curves are exactly the same
+        if (self.w, self.h, self.bcpw, self.bcph) == (other.w, other.h, other.bcpw, other.bcph):
+            return False
+        # width/height are too different
+        if abs(self.w - other.w) > self.sizeThreshold:
+            return False
+        if abs(self.h - other.h) > self.sizeThreshold:
+            return False
+        # bcp deltas are too different
+        if abs(self.bcpw - other.bcpw) > self.bcpThreshold:
+            return False
+        if abs(self.bcph - other.bcph) > self.bcpThreshold:
+            return False
+        # within range
+        return True
+
+    def __repr__(self):
+        return str([self.w, self.h, self.bcpw, self.bcph])
 
 
 # -------------------

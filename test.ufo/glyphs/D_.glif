@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<glyph name="D" format="1">
+  <advance width="500"/>
+  <unicode hex="0044"/>
+  <outline>
+    <contour>
+      <point x="0" y="498" type="move"/>
+      <point x="25" y="242"/>
+      <point x="143" y="75"/>
+      <point x="354" y="-1" type="curve"/>
+    </contour>
+  </outline>
+</glyph>
