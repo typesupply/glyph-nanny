@@ -5,6 +5,7 @@ from fontTools.misc import bezierTools as ftBezierTools
 from fontTools.misc import arrayTools as ftArrayTools
 from fontTools.agl import AGL2UV
 from fontTools.pens.cocoaPen import CocoaPen
+from fontTools.pens.transformPen import TransformPen
 from robofab.pens.digestPen import DigestPointPen
 from AppKit import *
 import vanilla
@@ -1151,11 +1152,11 @@ registerTest(
 
 # Symmetrical Curves
 
-def testCurveSymmetry(glyph):
-    slightlyAssymetricalCurves = set()
+def testForSlightlyAssymmetricCurves(glyph):
+    slightlyAsymmetricalCurves = []
     for contour in glyph:
         # gather pairs of curves that could potentially be related
-        curvePairs = set()
+        curvePairs = []
         for index, segment in enumerate(contour):
             # curve + h/v line + curve
             if segment.type == "line":
@@ -1172,71 +1173,86 @@ def testCurveSymmetry(glyph):
                     y = segment[-1].y
                     if px == x or py == y:
                         prevPrevSegment = contour[prev - 1]
-                        curvePairs.add(
-                            (
-                                (
-                                    (prevPrevSegment[-1].x, prevPrevSegment[-1].y),
-                                    (prevSegment[0].x, prevSegment[0].y),
-                                    (prevSegment[1].x, prevSegment[1].y),
-                                    (prevSegment[2].x, prevSegment[2].y)
-                                ),
-                                (
-                                    (segment[-1].x, segment[-1].y),
-                                    (nextSegment[0].x, nextSegment[0].y),
-                                    (nextSegment[1].x, nextSegment[1].y),
-                                    (nextSegment[2].x, nextSegment[2].y)
-                                )
-                            )
+                        c1 = (
+                            (prevPrevSegment[-1].x, prevPrevSegment[-1].y),
+                            (prevSegment[0].x, prevSegment[0].y),
+                            (prevSegment[1].x, prevSegment[1].y),
+                            (prevSegment[2].x, prevSegment[2].y)
                         )
+                        c2 = (
+                            (segment[-1].x, segment[-1].y),
+                            (nextSegment[0].x, nextSegment[0].y),
+                            (nextSegment[1].x, nextSegment[1].y),
+                            (nextSegment[2].x, nextSegment[2].y)
+                        )
+                        curvePairs.append((c1, c2))
+                        curvePairs.append((c2, c1))
             # curve + curve
             elif segment.type == "curve":
                 prev = index - 1
                 prevSegment = contour[prev]
                 if prevSegment.type == "curve":
                     prevPrevSegment = contour[prev - 1]
-                    curvePairs.add(
-                        (
-                            (
-                                (prevPrevSegment[-1].x, prevPrevSegment[-1].y),
-                                (prevSegment[0].x, prevSegment[0].y),
-                                (prevSegment[1].x, prevSegment[1].y),
-                                (prevSegment[2].x, prevSegment[2].y)
-                            ),
-                            (
-                                (prevSegment[2].x, prevSegment[2].y),
-                                (segment[0].x, segment[0].y),
-                                (segment[1].x, segment[1].y),
-                                (segment[2].x, segment[2].y)
-                            )
-                        )
+                    c1 = (
+                        (prevPrevSegment[-1].x, prevPrevSegment[-1].y),
+                        (prevSegment[0].x, prevSegment[0].y),
+                        (prevSegment[1].x, prevSegment[1].y),
+                        (prevSegment[2].x, prevSegment[2].y)
                     )
+                    c2 = (
+                        (prevSegment[2].x, prevSegment[2].y),
+                        (segment[0].x, segment[0].y),
+                        (segment[1].x, segment[1].y),
+                        (segment[2].x, segment[2].y)
+                    )
+                    curvePairs.append((c1, c2))
+                    curvePairs.append((c2, c1))
         # relativize the pairs and compare
         for curve1, curve2 in curvePairs:
             curve1Compare = _relativizeCurve(curve1)
             curve2Compare = _relativizeCurve(curve2)
             if curve1 is None or curve2 is None:
                 continue
-            if curve1Compare.closeTo(curve2Compare):
-                curves = sorted((curve1, curve2))
-                slightlyAssymetricalCurves.add(curves)
+            flipped = curve1Compare.getFlip(curve2Compare)
+            if flipped:
+                slightlyAsymmetricalCurves.append(flipped)
     # done
-    if not slightlyAssymetricalCurves:
+    if not slightlyAsymmetricalCurves:
         return None
-    return slightlyAssymetricalCurves
+    return slightlyAsymmetricalCurves
 
-def drawCurveSymmetry(data, scale, glyph):
-    pass
+def drawSlightlyAsymmetricCurves(data, scale, glyph):
+    handlePen = CocoaPen(None)
+    curvePen = CocoaPen(None)
+    for curve in data:
+        if curve is None:
+            continue
+        pt0, pt1, pt2, pt3 = curve
+        handlePen.moveTo(pt0)
+        handlePen.lineTo(pt1)
+        handlePen.moveTo(pt3)
+        handlePen.lineTo(pt2)
+        curvePen.moveTo(pt0)
+        curvePen.curveTo(pt1, pt2, pt3)
+    color = colorReview()
+    color = modifyColorAlpha(color, 0.75)
+    color.set()
+    path = curvePen.path
+    path.setLineWidth_(1.0 * scale)
+    path.stroke()
+    path = handlePen.path
+    path.setLineWidth_(1.0 * scale)
+    path.stroke()
+
 
 registerTest(
     identifier="curveSymmetry",
     level="contour",
     title="Curve Symmetry",
     description="One or more curve pairs are slightly assymetrical.",
-    testFunction=testCurveSymmetry,
-    drawingFunction=drawCurveSymmetry
+    testFunction=testForSlightlyAssymmetricCurves,
+    drawingFunction=drawSlightlyAsymmetricCurves
 )
-
-
 
 def _relativizeCurve(curve):
     pt0, pt1, pt2, pt3 = curve
@@ -1266,36 +1282,78 @@ def _relativizeCurve(curve):
     if bw is None or bh is None:
         return None
     # done
-    curve = _RelativeCurve((w, h, bw, bh), 5, 10)
+    curve = _CurveFlipper((w, h, bw, bh), curve, 5, 10)
     return curve
 
 
-class _RelativeCurve(object):
+class _CurveFlipper(object):
 
-    def __init__(self, curve, sizeThreshold, bcpThreshold):
-        self.w, self.h, self.bcpw, self.bcph = curve
+    def __init__(self, relativeCurve, curve, sizeThreshold, bcpThreshold):
+        self.w, self.h, self.bcpw, self.bcph = relativeCurve
+        self.pt0, self.pt1, self.pt2, self.pt3 = curve
         self.sizeThreshold = sizeThreshold
         self.bcpThreshold = bcpThreshold
-    
-    def closeTo(self, other):
+
+    def getFlip(self, other):
+        ## determine if they need a flip
         # curves are exactly the same
         if (self.w, self.h, self.bcpw, self.bcph) == (other.w, other.h, other.bcpw, other.bcph):
-            return False
+            return None
         # width/height are too different
         if abs(self.w - other.w) > self.sizeThreshold:
-            return False
+            return None
         if abs(self.h - other.h) > self.sizeThreshold:
-            return False
+            return None
         # bcp deltas are too different
         if abs(self.bcpw - other.bcpw) > self.bcpThreshold:
-            return False
+            return None
         if abs(self.bcph - other.bcph) > self.bcpThreshold:
-            return False
-        # within range
-        return True
+            return None
+        # determine the flip direction
+        minX = min((self.pt0[0], self.pt3[0]))
+        otherMinX = min((other.pt0[0], other.pt3[0]))
+        minY = min((self.pt0[1], self.pt3[1]))
+        otherMinY = min((other.pt0[1], other.pt3[1]))
+        direction = None
+        if abs(minX - otherMinX) <= self.sizeThreshold:
+            direction = "v"
+        elif abs(minY - otherMinY) <= self.sizeThreshold:
+            direction = "h"
+        if direction is None:
+            return None
+        # flip
+        if direction == "h":
+            transformation = (-1, 0, 0, 1, 0, 0)
+        else:
+            transformation = (1, 0, 0, -1, 0, 0)
+        self._transformedPoints = []
+        transformPen = TransformPen(self, transformation)
+        transformPen.moveTo(self.pt0)
+        transformPen.curveTo(self.pt1, self.pt2, self.pt3)
+        points = self._transformedPoints
+        del self._transformedPoints
+        # offset
+        oX = oY = 0
+        if direction == "v":
+            oY = points[-1][1] - other.pt0[1]
+        else:
+            oX = points[-1][0] - other.pt0[0]
+        offset = []
+        for x, y in points:
+            x -= oX
+            y -= oY
+            offset.append((x, y))
+        points = offset
+        # done
+        return points
 
-    def __repr__(self):
-        return str([self.w, self.h, self.bcpw, self.bcph])
+    def moveTo(self, pt):
+        self._transformedPoints.append(pt)
+
+    def curveTo(self, pt1, pt2, pt3):
+        self._transformedPoints.append(pt1)
+        self._transformedPoints.append(pt2)
+        self._transformedPoints.append(pt3)
 
 
 # -------------------
