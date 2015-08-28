@@ -1153,6 +1153,9 @@ registerTest(
 # Symmetrical Curves
 
 def testForSlightlyAssymmetricCurves(glyph):
+    """
+    Note adjacent curves that are almost symmetrical.
+    """
     slightlyAsymmetricalCurves = []
     for contour in glyph:
         # gather pairs of curves that could potentially be related
@@ -1224,6 +1227,7 @@ def testForSlightlyAssymmetricCurves(glyph):
 def drawSlightlyAsymmetricCurves(data, scale, glyph):
     handlePen = CocoaPen(None)
     curvePen = CocoaPen(None)
+    offCurves = []
     for curve in data:
         if curve is None:
             continue
@@ -1234,8 +1238,10 @@ def drawSlightlyAsymmetricCurves(data, scale, glyph):
         handlePen.lineTo(pt2)
         curvePen.moveTo(pt0)
         curvePen.curveTo(pt1, pt2, pt3)
+        offCurves.append(pt1)
+        offCurves.append(pt2)
     color = colorReview()
-    color = modifyColorAlpha(color, 0.75)
+    color = modifyColorAlpha(color, 0.5)
     color.set()
     path = curvePen.path
     path.setLineWidth_(1.0 * scale)
@@ -1243,7 +1249,8 @@ def drawSlightlyAsymmetricCurves(data, scale, glyph):
     path = handlePen.path
     path.setLineWidth_(1.0 * scale)
     path.stroke()
-
+    d = 6 * scale
+    drawCircles(offCurves, d, fill=color)
 
 registerTest(
     identifier="curveSymmetry",
@@ -2081,6 +2088,19 @@ def drawString(pt, text, size, scale, color, alignment="center", backgroundColor
         width, height = text.size()
         x -= width
     text.drawAtPoint_((x, y))
+
+def drawCircles(points, size, fill=None, stroke=None):
+    path = NSBezierPath.bezierPath()
+    h = size / 2
+    for (x, y) in points:
+        rect = ((x - h, y - h), (size, size))
+        path.appendBezierPathWithOvalInRect_(rect)
+    if fill:
+        fill.set()
+        path.fill()
+    if stroke:
+        stroke.set()
+        path.stroke()
 
 def calcMid(pt1, pt2):
     x1, y1 = pt1
