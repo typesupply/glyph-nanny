@@ -24,6 +24,9 @@ DEBUG = True
 # Defaults
 # --------
 
+generalLineWidth = 1
+highlightLineWidth = 4
+
 defaultKeyStub = "com.typesupply.GlyphNanny."
 defaultKeyObserverVisibility = defaultKeyStub + "displayReportInGlyphView"
 defaultKeyTitleVisibility = defaultKeyStub + "displayReportTitles"
@@ -592,7 +595,7 @@ def drawStemWidths(data, scale, glyph):
         xM = calcCenter(*xPositions)
         color.set()
         path = drawLine((xM, y1), (xM, y2), scale, arrowStart=True, arrowEnd=True)
-        path.setLineWidth_(1 * scale)
+        path.setLineWidth_(generalLineWidth * scale)
         path.stroke()
         if defaults.showTitles:
             tX, tY = calcMid((xM, y1), (xM, y2))
@@ -604,7 +607,7 @@ def drawStemWidths(data, scale, glyph):
         yM = calcCenter(*yPositions)
         color.set()
         path = drawLine((x1, yM), (x2, yM), scale, arrowStart=True, arrowEnd=True)
-        path.setLineWidth_(1 * scale)
+        path.setLineWidth_(generalLineWidth * scale)
         path.stroke()
         if defaults.showTitles:
             tX, tY = calcMid((x1, yM), (x2, yM))
@@ -844,14 +847,14 @@ def _drawSideBearingsReport(data, scale, textPosition, color):
     color.set()
     if leftMessage:
         path = drawLine((0, y), (left, y), scale=scale, arrowStart=True)
-        path.setLineWidth_(1 * scale)
+        path.setLineWidth_(generalLineWidth * scale)
         path.stroke()
         if defaults.showTitles:
             x = min((0, left)) - (5 * scale)
             drawString((x, y), leftMessage, 10, scale, color, alignment="right")
     if rightMessage:
         path = drawLine((right, y), (width, y), scale=scale, arrowEnd=True)
-        path.setLineWidth_(1 * scale)
+        path.setLineWidth_(generalLineWidth * scale)
         path.stroke()
         if defaults.showTitles:
             x = min((0, left)) - (5 * scale)
@@ -978,7 +981,7 @@ def drawMetricsSymmetry(data, scale, glyph):
     x = left + (((width - right) - left) / 2.0)
     color.set()
     path = drawLine((min((0, left)), y), (max((width, width - right)), y), scale=scale, arrowStart=True, arrowEnd=True)
-    path.setLineWidth_(1 * scale)
+    path.setLineWidth_(generalLineWidth * scale)
     path.stroke()
     if defaults.showTitles:
         drawString((x, y), message, 10, scale, color, backgroundColor=NSColor.whiteColor())
@@ -1022,19 +1025,19 @@ def testDuplicateContours(glyph):
 def drawDuplicateContours(contours, scale, glyph):
     font = glyph.getParent()
     color = defaults.colorRemove
-    color.set()
+    pen = CocoaPen(None)
     for contourIndex in contours:
         contour = glyph[contourIndex]
-        pen = CocoaPen(font)
         contour.draw(pen)
-        path = pen.path
-        path.setLineWidth_(5 * scale)
-        path.stroke()
-        xMin, yMin, xMax, yMax = contour.box
         if defaults.showTitles:
+            xMin, yMin, xMax, yMax = contour.box
             mid = calcMid((xMin, yMin), (xMax, yMin))
             x, y = mid
             drawString((x, y - (10 * scale)), "Duplicate Contour", 10, scale, color)
+    color.set()
+    path = pen.path
+    path.setLineWidth_(highlightLineWidth * scale)
+    path.stroke()
 
 registerTest(
     identifier="duplicateContours",
