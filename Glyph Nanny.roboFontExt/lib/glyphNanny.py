@@ -210,9 +210,9 @@ class GlyphNannyPrefsWindow(object):
     def testStateCheckBoxCallback(self, sender):
         identifier = self.testStateControlToIdentifier[sender]
         state = sender.get()
-        defaults = defaults.getValue(defaultKeyTestStates)
-        defaults[identifier] = state
-        setExtensionDefault(defaultKeyTestStates, defaults)
+        storage = defaults.getValue(defaultKeyTestStates)
+        storage[identifier] = state
+        setExtensionDefault(defaultKeyTestStates, storage)
         defaults.reload()
         UpdateCurrentGlyphView()
 
@@ -563,11 +563,11 @@ def testStemWidths(glyph):
     # horizontal
     hStems = [_StemWrapper(v, tolerance) for v in font.info.postscriptStemSnapH]
     if hStems:
-        hProblems = _findStems(glyph, hStems, "h")
+        hProblems = _findStemProblems(glyph, hStems, "h")
     # vertical
     vStems = [_StemWrapper(v, tolerance) for v in font.info.postscriptStemSnapV]
     if vStems:
-        vProblems = _findStems(glyph, vStems, "v")
+        vProblems = _findStemProblems(glyph, vStems, "v")
     # report
     if hProblems or vProblems:
         stemProblems = dict(
@@ -585,28 +585,29 @@ def drawStemWidths(data, scale, glyph):
     font = glyph.getParent()
     b = font.info.unitsPerEm * 0.25
     color = textColor = defaults.colorReview
-    color = modifyColorAlpha(color, 0.1)
     # horizontal
     x = -b
     w = glyph.width + (b * 2)
-    for y1, y2 in hProblems:
-        h = y2 - y1
+    for y1, y2, xPositions in hProblems:
+        xM = calcCenter(*xPositions)
         color.set()
-        rect = ((x, y1), (w, h))
-        NSRectFillUsingOperation(rect, NSCompositeSourceOver)
-        pt = (20, y1 + (h / 2) - 5)
-        drawString(pt, "Check Stem", 10, scale, textColor, alignment="left")
+        path = drawLine((xM, y1), (xM, y2), scale, arrowStart=True, arrowEnd=True)
+        path.stroke()
+        if defaults.showTitles:
+            tX, tY = calcMid((xM, y1), (xM, y2))
+            drawString((tX, tY), "Check Stem", 10, scale, textColor, alignment="center", backgroundColor=NSColor.whiteColor())
     # horizontal
     y = font.info.descender - b
     h = max((font.info.ascender, font.info.capHeight)) - y + (b * 2)
-    for x1, x2 in vProblems:
-        w = x2 - x1
+    for x1, x2, yPositions in vProblems:
+        yM = calcCenter(*yPositions)
         color.set()
-        rect = ((x1, y), (w, h))
-        NSRectFillUsingOperation(rect, NSCompositeSourceOver)
+        path = drawLine((x1, yM), (x2, yM), scale, arrowStart=True, arrowEnd=True)
+        path.stroke()
         if defaults.showTitles:
-            pt = (x1 + (w / 2), -20)
-            drawString(pt, "Check Stem", 10, scale, textColor, alignment="center")
+            tX, tY = calcMid((x1, yM), (x2, yM))
+            tY -= 15 * scale
+            drawString((tX, tY), "Check Stem", 10, scale, textColor, alignment="center", backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="stemWidths",
@@ -617,7 +618,7 @@ registerTest(
     drawingFunction=drawStemWidths
 )
 
-def _findStems(glyph, targetStems, stemDirection):
+def _findStemProblems(glyph, targetStems, stemDirection):
     stems = set()
     # h/v abstraction
     if stemDirection == "h":
@@ -648,7 +649,7 @@ def _findStems(glyph, targetStems, stemDirection):
             point = _unwrapPoint(segment.onCurve)
             if segment.type == "line":
                 # only process completely horizontal/vertical lines
-                # that have a length grater than 0
+                # that have a length greater than 0
                 if (previous[primaryCoordinate] == point[primaryCoordinate]) and (previous[secondaryCoordinate] != point[secondaryCoordinate]):
                     angle = _calcAngle(previous, point)
                     p = point[primaryCoordinate]
@@ -707,10 +708,12 @@ def _findStems(glyph, targetStems, stemDirection):
                                         if w == stem:
                                             d = stem.diff(w)
                                             if d:
-                                                hits.append((d, stem.value))
+                                                hits.append((d, stem.value, (s1a, s1b, s2a, s2b)))
                                     if hits:
-                                        w = min(hits)[1]
-                                        stems.add((p1, p1 + w))
+                                        hit = min(hits)
+                                        w = hit[1]
+                                        s = hit[2]
+                                        stems.add((p1, p1 + w, s))
     # double contours to test
     for clockwiseContour in contours[True]:
         clockwiseBounds = clockwiseContour[0]
@@ -738,11 +741,13 @@ def _findStems(glyph, targetStems, stemDirection):
                                         if w == stem:
                                             d = stem.diff(w)
                                             if d:
-                                                hits.append((d, stem.value))
+                                                hits.append((d, stem.value, (clockwiseSA, clockwiseSB, counterSA, counterSB)))
                                     if hits:
                                         p = min((clockwiseP, counterP))
-                                        w = min(hits)[1]
-                                        stems.add((p, p + w))
+                                        hit = min(hits)
+                                        w = hit[1]
+                                        s = hit[2]
+                                        stems.add((p, p + w, s))
     # done
     return stems
 
@@ -2197,6 +2202,19 @@ def calcMid(pt1, pt2):
     x = x1 - ((x1 - x2) / 2)
     y = y1 - ((y1 - y2) / 2)
     return x, y
+
+def calcCenter(v1, v2, v3, v4):
+    a = b = None
+    if v1 > v3:
+        a = v1
+    else:
+        a = v3
+    if v2 < v4:
+        b = v2
+    else:
+        b = v4
+    c = a + ((b - a) / 2)
+    return c
 
 
 if __name__ == "__main__":
