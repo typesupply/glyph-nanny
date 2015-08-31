@@ -592,6 +592,7 @@ def drawStemWidths(data, scale, glyph):
         xM = calcCenter(*xPositions)
         color.set()
         path = drawLine((xM, y1), (xM, y2), scale, arrowStart=True, arrowEnd=True)
+        path.setLineWidth_(1 * scale)
         path.stroke()
         if defaults.showTitles:
             tX, tY = calcMid((xM, y1), (xM, y2))
@@ -603,6 +604,7 @@ def drawStemWidths(data, scale, glyph):
         yM = calcCenter(*yPositions)
         color.set()
         path = drawLine((x1, yM), (x2, yM), scale, arrowStart=True, arrowEnd=True)
+        path.setLineWidth_(1 * scale)
         path.stroke()
         if defaults.showTitles:
             tX, tY = calcMid((x1, yM), (x2, yM))
@@ -838,27 +840,22 @@ def _drawSideBearingsReport(data, scale, textPosition, color):
     xMin, yMin, xMax, yMax = data["box"]
     h = (yMax - yMin) / 2.0
     y = textPosition
-    path = NSBezierPath.bezierPath()
+    color = defaults.colorReview
+    color.set()
     if leftMessage:
-        path.moveToPoint_((0, y))
-        path.lineToPoint_((left, y))
-        path.moveToPoint_((left, yMin))
-        path.lineToPoint_((left, yMax))
+        path = drawLine((0, y), (left, y), scale=scale, arrowStart=True)
+        path.setLineWidth_(1 * scale)
+        path.stroke()
         if defaults.showTitles:
             x = min((0, left)) - (5 * scale)
             drawString((x, y), leftMessage, 10, scale, color, alignment="right")
     if rightMessage:
-        right = width - right
-        path.moveToPoint_((width, y))
-        path.lineToPoint_((right, y))
-        path.moveToPoint_((right, yMin))
-        path.lineToPoint_((right, yMax))
+        path = drawLine((right, y), (width, y), scale=scale, arrowEnd=True)
+        path.setLineWidth_(1 * scale)
+        path.stroke()
         if defaults.showTitles:
-            x = max((width, right)) + (5 * scale)
+            x = min((0, left)) - (5 * scale)
             drawString((x, y), rightMessage, 10, scale, color, alignment="left")
-    color.set()
-    path.setLineWidth_(scale)
-    path.stroke()
 
 registerTest(
     identifier="ligatureMetrics",
@@ -979,19 +976,9 @@ def drawMetricsSymmetry(data, scale, glyph):
     message = data["message"]
     y = -20
     x = left + (((width - right) - left) / 2.0)
-    path = NSBezierPath.bezierPath()
-    path.moveToPoint_((min((0, left)), y))
-    path.lineToPoint_((max((width, width - right)), y))
-    path.moveToPoint_((0, 0))
-    path.lineToPoint_((0, y * 2))
-    path.moveToPoint_((left, 0))
-    path.lineToPoint_((left, y * 2))
-    path.moveToPoint_((width - right, 0))
-    path.lineToPoint_((width - right, y * 2))
-    path.moveToPoint_((width, 0))
-    path.lineToPoint_((width, y * 2))
-    path.setLineWidth_(scale)
     color.set()
+    path = drawLine((min((0, left)), y), (max((width, width - right)), y), scale=scale, arrowStart=True, arrowEnd=True)
+    path.setLineWidth_(1 * scale)
     path.stroke()
     if defaults.showTitles:
         drawString((x, y), message, 10, scale, color, backgroundColor=NSColor.whiteColor())
@@ -1125,7 +1112,7 @@ def drawOpenContours(contours, scale, glyph):
     for contourIndex, points in contours.items():
         start, end = points
         path = drawLine(start, end, scale=scale, arrowStart=True)
-        path.setLineWidth_(2 * scale)
+        path.setLineWidth_(1 * scale)
         path.stroke()
         if defaults.showTitles:
             mid = calcMid(start, end)
