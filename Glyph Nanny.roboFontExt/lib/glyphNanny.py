@@ -71,6 +71,11 @@ class DefaultsManager(object):
             self._values[key] = getExtensionDefault(key)
         return self._values[key]
 
+    def _get_showTitles(self):
+        return False
+
+    showTitles = property(_get_showTitles)
+
     # Colors
 
     def _getColor(self, key, fallback):
@@ -81,17 +86,25 @@ class DefaultsManager(object):
             self._values[key] = color
         return self._values[key]
 
-    def colorInform(self):
+    def _get_colorInform(self):
         return self._getColor(defaultKeyColorInform, (0, 0, 0.7, 0.3))
 
-    def colorInsert(self):
+    colorInform = property(_get_colorInform)
+
+    def _get_colorInsert(self):
         return self._getColor(defaultKeyColorInsert, (0, 1, 0, 0.75))
 
-    def colorRemove(self):
+    colorInsert = property(_get_colorInsert)
+
+    def _get_colorRemove(self):
         return self._getColor(defaultKeyColorRemove, (1, 0, 0, 0.5))
 
-    def colorReview(self):
+    colorRemove = property(_get_colorRemove)
+
+    def _get_colorReview(self):
         return self._getColor(defaultKeyColorReview, (1, 0.7, 0, 0.7))
+
+    colorReview = property(_get_colorReview)
 
 
 defaults = DefaultsManager()
@@ -162,10 +175,10 @@ class GlyphNannyPrefsWindow(object):
 
         # colors
         colors = [
-            ("Information", defaults.colorInform(), defaultKeyColorInform),
-            ("Review Something", defaults.colorReview(), defaultKeyColorReview),
-            ("Insert Something", defaults.colorInsert(), defaultKeyColorInsert),
-            ("Remove Something", defaults.colorRemove(), defaultKeyColorRemove)
+            ("Information", defaults.colorInform, defaultKeyColorInform),
+            ("Review Something", defaults.colorReview, defaultKeyColorReview),
+            ("Insert Something", defaults.colorInsert, defaultKeyColorInsert),
+            ("Remove Something", defaults.colorRemove, defaultKeyColorRemove)
         ]
         top = 290
         for title, color, key in colors:
@@ -470,7 +483,7 @@ def drawTextReport(report, scale, glyph):
         text = "\n".join(text)
         x = 50
         y = 50
-        drawString((x, y), text, 16, scale, defaults.colorInform(), alignment="left")
+        drawString((x, y), text, 16, scale, defaults.colorInform, alignment="left")
 
 # Unicode Value
 
@@ -556,7 +569,7 @@ def drawStemWidths(data, scale, glyph):
         return
     font = glyph.getParent()
     b = font.info.unitsPerEm * 0.25
-    color = textColor = defaults.colorReview()
+    color = textColor = defaults.colorReview
     color = modifyColorAlpha(color, 0.1)
     # horizontal
     x = -b
@@ -793,7 +806,7 @@ def drawLigatureMetrics(data, scale, glyph):
     xMin, yMin, xMax, yMax = data["box"]
     h = (yMax - yMin) / 2.0
     y = yMax - h + (20 * scale)
-    _drawSideBearingsReport(data, scale, y, defaults.colorReview())
+    _drawSideBearingsReport(data, scale, y, defaults.colorReview)
 
 def _drawSideBearingsReport(data, scale, textPosition, color):
     left = data["left"]
@@ -906,7 +919,7 @@ def drawComponentMetrics(data, scale, glyph):
     xMin, yMin, xMax, yMax = data["box"]
     h = (yMax - yMin) / 2.0
     y = yMax - h - (20 * scale)
-    _drawSideBearingsReport(data, scale, y, defaults.colorReview())
+    _drawSideBearingsReport(data, scale, y, defaults.colorReview)
 
 registerTest(
     identifier="componentMetrics",
@@ -936,7 +949,7 @@ def testMetricsSymmetry(glyph):
     return None
 
 def drawMetricsSymmetry(data, scale, glyph):
-    color = defaults.colorReview()
+    color = defaults.colorReview
     left = data["left"]
     right = data["right"]
     width = data["width"]
@@ -997,7 +1010,7 @@ def testDuplicateContours(glyph):
 
 def drawDuplicateContours(contours, scale, glyph):
     font = glyph.getParent()
-    color = defaults.colorRemove()
+    color = defaults.colorRemove
     color.set()
     for contourIndex in contours:
         contour = glyph[contourIndex]
@@ -1040,7 +1053,7 @@ def testForSmallContours(glyph):
     return smallContours
 
 def drawSmallContours(contours, scale, glyph):
-    color = defaults.colorRemove()
+    color = defaults.colorRemove
     color.set()
     for contourIndex, box in contours.items():
         xMin, yMin, xMax, yMax = box
@@ -1081,18 +1094,16 @@ def testForOpenContours(glyph):
     return openContours
 
 def drawOpenContours(contours, scale, glyph):
-    color = defaults.colorInsert()
+    color = defaults.colorInsert
     color.set()
     for contourIndex, points in contours.items():
         start, end = points
-        mid = calcMid(start, end)
-        path = NSBezierPath.bezierPath()
-        path.moveToPoint_(start)
-        path.lineToPoint_(end)
-        path.setLineWidth_(scale)
-        path.setLineDash_count_phase_([4], 1, 0.0)
+        path = drawLine(start, end, scale=scale, arrowStart=True)
+        path.setLineWidth_(2 * scale)
         path.stroke()
-        drawString(mid, "Open Contour", 10, scale, color, backgroundColor=NSColor.whiteColor())
+        if defaults.showTitles:
+            mid = calcMid(start, end)
+            drawString(mid, "Open Contour", 10, scale, color, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="openContours",
@@ -1122,7 +1133,7 @@ def testForExtremePoints(glyph):
     return pointsAtExtrema
 
 def drawExtremePoints(contours, scale, glyph):
-    color = defaults.colorInsert()
+    color = defaults.colorInsert
     path = NSBezierPath.bezierPath()
     d = 16 * scale
     h = d / 2.0
@@ -1241,7 +1252,7 @@ def drawSlightlyAsymmetricCurves(data, scale, glyph):
         curvePen.curveTo(pt1, pt2, pt3)
         offCurves.append(pt1)
         offCurves.append(pt2)
-    color = defaults.colorReview()
+    color = defaults.colorReview
     color = modifyColorAlpha(color, 0.5)
     color.set()
     path = curvePen.path
@@ -1393,7 +1404,7 @@ def testForStraightLines(glyph):
     return straightLines
 
 def drawStraightLines(contours, scale, glyph):
-    color = defaults.colorReview()
+    color = defaults.colorReview
     color.set()
     for contourIndex, segments in contours.items():
         for segment in segments:
@@ -1474,7 +1485,7 @@ def _testPointNearVerticalMetrics(pt, verticalMetrics):
     return False, None
 
 def drawSegmentsNearVericalMetrics(verticalMetrics, scale, glyph):
-    color = defaults.colorReview()
+    color = defaults.colorReview
     path = NSBezierPath.bezierPath()
     for verticalMetric, points in verticalMetrics.items():
         xMin = None
@@ -1530,7 +1541,7 @@ def testUnsmoothSmooths(glyph):
     return unsmoothSmooths
 
 def drawUnsmoothSmooths(contours, scale, glyph):
-    color = defaults.colorReview()
+    color = defaults.colorReview
     color.set()
     for contourIndex, points in contours.items():
         path = NSBezierPath.bezierPath()
@@ -1575,7 +1586,7 @@ def testForComplexCurves(glyph):
     return impliedS
 
 def drawComplexCurves(contours, scale, glyph):
-    color = defaults.colorReview()
+    color = defaults.colorReview
     color.set()
     for contourIndex, segments in contours.items():
         for segment in segments:
@@ -1657,7 +1668,7 @@ def testForCrossedHandles(glyph):
 def drawCrossedHandles(contours, scale, glyph):
     d = 10 * scale
     h = d / 2.0
-    color = defaults.colorReview()
+    color = defaults.colorReview
     color.set()
     for contourIndex, segments in contours.items():
         for segment in segments:
@@ -1715,7 +1726,7 @@ def testForUnnecessaryHandles(glyph):
     return unnecessaryHandles
 
 def drawUnnecessaryHandles(contours, scale, glyph):
-    color = defaults.colorRemove()
+    color = defaults.colorRemove
     color.set()
     d = 10 * scale
     h = d / 2.0
@@ -1810,7 +1821,7 @@ def _getUnevenHandleShape(pt0, pt1, pt2, pt3, intersection, start, end, off):
     return curves + [off, start]
 
 def drawUnevenHandles(contours, scale, glyph):
-    strokeColor = defaults.colorReview()
+    strokeColor = defaults.colorReview
     fillColor = modifyColorAlpha(strokeColor, 0.15)
     for index, groups in contours.items():
         for off1, off2, shape1, shape2 in groups:
@@ -1865,7 +1876,7 @@ def testForStrayPoints(glyph):
     return strayPoints
 
 def drawStrayPoints(contours, scale, glyph):
-    color = defaults.colorRemove()
+    color = defaults.colorRemove
     path = NSBezierPath.bezierPath()
     d = 20 * scale
     h = d / 2.0
@@ -1908,7 +1919,7 @@ def testForUnnecessaryPoints(glyph):
     return unnecessaryPoints
 
 def drawUnnecessaryPoints(contours, scale, glyph):
-    color = defaults.colorRemove()
+    color = defaults.colorRemove
     path = NSBezierPath.bezierPath()
     for contourIndex, points in contours.items():
         for pt in points:
@@ -1949,7 +1960,7 @@ def testForOverlappingPoints(glyph):
     return overlappingPoints
 
 def drawOverlappingPoints(contours, scale, glyph):
-    color = defaults.colorRemove()
+    color = defaults.colorRemove
     path = NSBezierPath.bezierPath()
     d = 10 * scale
     h = d / 2.0
