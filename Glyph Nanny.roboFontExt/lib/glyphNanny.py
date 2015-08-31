@@ -26,6 +26,7 @@ DEBUG = True
 
 defaultKeyStub = "com.typesupply.GlyphNanny."
 defaultKeyObserverVisibility = defaultKeyStub + "displayReportInGlyphView"
+defaultKeyTitleVisibility = defaultKeyStub + "displayReportTitles"
 defaultKeyTestStates = defaultKeyStub + "testStates"
 defaultKeyColorInform = defaultKeyStub + "colorInform"
 defaultKeyColorReview = defaultKeyStub + "colorReview"
@@ -35,6 +36,7 @@ defaultKeyColorInsert = defaultKeyStub + "colorInsert"
 def registerGlyphNannyDefaults():
     storage = {
         defaultKeyObserverVisibility : False,
+        defaultKeyTitleVisibility : True,
         defaultKeyTestStates : {}
     }
     for key in sorted(testRegistry.keys()):
@@ -72,7 +74,7 @@ class DefaultsManager(object):
         return self._values[key]
 
     def _get_showTitles(self):
-        return False
+        return self.getValue(defaultKeyTitleVisibility)
 
     showTitles = property(_get_showTitles)
 
@@ -162,7 +164,7 @@ class GlyphNannyPrefsWindow(object):
         self.testStateControlToIdentifier = {}
         self.colorControlToKey = {}
 
-        self.w = vanilla.Window((264, 425), "Glyph Nanny Preferences")
+        self.w = vanilla.Window((264, 457), "Glyph Nanny Preferences")
 
         # global visibility
         state = defaults.getValue(defaultKeyObserverVisibility)
@@ -189,11 +191,16 @@ class GlyphNannyPrefsWindow(object):
             setattr(self.w, "colorTitle_" + title, control)
             top += 32
 
+        # titles
+        state = defaults.getValue(defaultKeyTitleVisibility)
+        self.w.displayReportTitlesCheckBox = vanilla.CheckBox((15, 425, -15, 22), "Show Report Titles", value=state, callback=self.displayReportTitlesCheckBoxCallback)
+
         self.w.open()
 
     def displayLiveReportRadioGroupCallback(self, sender):
         state = not sender.get()
         setExtensionDefault(defaultKeyObserverVisibility, state)
+        defaults.reload()
         UpdateCurrentGlyphView()
 
     def testStateTabSelectorCallback(self, sender):
@@ -206,12 +213,20 @@ class GlyphNannyPrefsWindow(object):
         defaults = defaults.getValue(defaultKeyTestStates)
         defaults[identifier] = state
         setExtensionDefault(defaultKeyTestStates, defaults)
+        defaults.reload()
         UpdateCurrentGlyphView()
 
     def noteColorColorWellCallback(self, sender):
         color = sender.get()
         key = self.colorControlToKey[sender]
         setExtensionDefaultColor(key, color)
+        defaults.reload()
+        UpdateCurrentGlyphView()
+
+    def displayReportTitlesCheckBoxCallback(self, sender):
+        state = sender.get()
+        setExtensionDefault(defaultKeyTitleVisibility, state)
+        defaults.reload()
         UpdateCurrentGlyphView()
 
 
@@ -589,8 +604,9 @@ def drawStemWidths(data, scale, glyph):
         color.set()
         rect = ((x1, y), (w, h))
         NSRectFillUsingOperation(rect, NSCompositeSourceOver)
-        pt = (x1 + (w / 2), -20)
-        drawString(pt, "Check Stem", 10, scale, textColor, alignment="center")
+        if defaults.showTitles:
+            pt = (x1 + (w / 2), -20)
+            drawString(pt, "Check Stem", 10, scale, textColor, alignment="center")
 
 registerTest(
     identifier="stemWidths",
@@ -823,16 +839,18 @@ def _drawSideBearingsReport(data, scale, textPosition, color):
         path.lineToPoint_((left, y))
         path.moveToPoint_((left, yMin))
         path.lineToPoint_((left, yMax))
-        x = min((0, left)) - (5 * scale)
-        drawString((x, y), leftMessage, 10, scale, color, alignment="right")
+        if defaults.showTitles:
+            x = min((0, left)) - (5 * scale)
+            drawString((x, y), leftMessage, 10, scale, color, alignment="right")
     if rightMessage:
         right = width - right
         path.moveToPoint_((width, y))
         path.lineToPoint_((right, y))
         path.moveToPoint_((right, yMin))
         path.lineToPoint_((right, yMax))
-        x = max((width, right)) + (5 * scale)
-        drawString((x, y), rightMessage, 10, scale, color, alignment="left")
+        if defaults.showTitles:
+            x = max((width, right)) + (5 * scale)
+            drawString((x, y), rightMessage, 10, scale, color, alignment="left")
     color.set()
     path.setLineWidth_(scale)
     path.stroke()
@@ -970,7 +988,8 @@ def drawMetricsSymmetry(data, scale, glyph):
     path.setLineWidth_(scale)
     color.set()
     path.stroke()
-    drawString((x, y), message, 10, scale, color, backgroundColor=NSColor.whiteColor())
+    if defaults.showTitles:
+        drawString((x, y), message, 10, scale, color, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="metricsSymmetry",
@@ -1020,9 +1039,10 @@ def drawDuplicateContours(contours, scale, glyph):
         path.setLineWidth_(5 * scale)
         path.stroke()
         xMin, yMin, xMax, yMax = contour.box
-        mid = calcMid((xMin, yMin), (xMax, yMin))
-        x, y = mid
-        drawString((x, y - (10 * scale)), "Duplicate Contour", 10, scale, color)
+        if defaults.showTitles:
+            mid = calcMid((xMin, yMin), (xMax, yMin))
+            x, y = mid
+            drawString((x, y - (10 * scale)), "Duplicate Contour", 10, scale, color)
 
 registerTest(
     identifier="duplicateContours",
@@ -1062,9 +1082,10 @@ def drawSmallContours(contours, scale, glyph):
         r = ((xMin, yMin), (w, h))
         r = NSInsetRect(r, -5 * scale, -5 * scale)
         NSRectFillUsingOperation(r, NSCompositeSourceOver)
-        x = xMin + (w / 2)
-        y = yMin - (10 * scale)
-        drawString((x, y), "Tiny Contour", 10, scale, color)
+        if defaults.showTitles:
+            x = xMin + (w / 2)
+            y = yMin - (10 * scale)
+            drawString((x, y), "Tiny Contour", 10, scale, color)
 
 registerTest(
     identifier="smallContours",
@@ -1146,7 +1167,8 @@ def drawExtremePoints(contours, scale, glyph):
             path.lineToPoint_((x + h - o, y))
             path.moveToPoint_((x, y - h + o))
             path.lineToPoint_((x, y + h - o))
-            drawString((x, y - (16 * scale)), "Insert Point", 10, scale, color)
+            if defaults.showTitles:
+                drawString((x, y - (16 * scale)), "Insert Point", 10, scale, color)
     color.set()
     path.setLineWidth_(scale)
     path.stroke()
@@ -1550,8 +1572,9 @@ def drawUnsmoothSmooths(contours, scale, glyph):
             path.lineToPoint_(pt3)
             path.setLineWidth_(2 * scale)
             path.stroke()
-            x, y = pt2
-            drawString((x, y - (10 * scale)), "Unsmooth Smooth", 10, scale, color, backgroundColor=NSColor.whiteColor())
+            if defaults.showTitles:
+                x, y = pt2
+                drawString((x, y - (10 * scale)), "Unsmooth Smooth", 10, scale, color, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="unsmoothSmooths",
@@ -1597,8 +1620,9 @@ def drawComplexCurves(contours, scale, glyph):
             path.setLineWidth_(3 * scale)
             path.setLineCapStyle_(NSRoundLineCapStyle)
             path.stroke()
-            mid = ftBezierTools.splitCubicAtT(pt0, pt1, pt2, pt3, 0.5)[0][-1]
-            drawString(mid, "Complex Curve", 10, scale, color, backgroundColor=NSColor.whiteColor())
+            if defaults.showTitles:
+                mid = ftBezierTools.splitCubicAtT(pt0, pt1, pt2, pt3, 0.5)[0][-1]
+                drawString(mid, "Complex Curve", 10, scale, color, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="complexCurves",
@@ -1687,7 +1711,8 @@ def drawCrossedHandles(contours, scale, glyph):
             path1.setLineCapStyle_(NSRoundLineCapStyle)
             path1.stroke()
             path2.fill()
-            drawString((x, y - (12 * scale)), "Crossed Handles", 10, scale, color, backgroundColor=NSColor.whiteColor())
+            if defaults.showTitles:
+                drawString((x, y - (12 * scale)), "Crossed Handles", 10, scale, color, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="crossedHandles",
@@ -1746,8 +1771,9 @@ def drawUnnecessaryHandles(contours, scale, glyph):
             path2.setLineWidth_(scale)
             path2.stroke()
             # text
-            mid = calcMid(bcp1, bcp2)
-            drawString(mid, "Unnecessary Handles", 10, scale, color, backgroundColor=NSColor.whiteColor())
+            if defaults.showTitles:
+                mid = calcMid(bcp1, bcp2)
+                drawString(mid, "Unnecessary Handles", 10, scale, color, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="unnecessaryHandles",
@@ -1841,8 +1867,9 @@ def drawUnevenHandles(contours, scale, glyph):
             path.lineToPoint_(off2)
             path.setLineWidth_(scale)
             path.stroke()
-            mid = calcMid(off1, off2)
-            drawString(mid, "Uneven Handles", 10, scale, strokeColor, backgroundColor=NSColor.whiteColor())
+            if defaults.showTitles:
+                mid = calcMid(off1, off2)
+                drawString(mid, "Uneven Handles", 10, scale, strokeColor, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="unevenHandles",
@@ -1883,7 +1910,8 @@ def drawStrayPoints(contours, scale, glyph):
     for contourIndex, (x, y) in contours.items():
         r = ((x - h, y - h), (d, d))
         path.appendBezierPathWithOvalInRect_(r)
-        drawString((x, y - d), "Stray Point", 10, scale, color)
+        if defaults.showTitles:
+            drawString((x, y - d), "Stray Point", 10, scale, color)
     color.set()
     path.setLineWidth_(scale)
     path.stroke()
@@ -1924,8 +1952,9 @@ def drawUnnecessaryPoints(contours, scale, glyph):
     for contourIndex, points in contours.items():
         for pt in points:
             drawDeleteMark(pt, scale, path)
-            x, y = pt
-            drawString((x, y - (10 * scale)), "Unnecessary Point", 10, scale, color)
+            if defaults.showTitles:
+                x, y = pt
+                drawString((x, y - (10 * scale)), "Unnecessary Point", 10, scale, color)
     color.set()
     path.setLineWidth_(2 * scale)
     path.stroke()
@@ -1971,7 +2000,8 @@ def drawOverlappingPoints(contours, scale, glyph):
             path.appendBezierPathWithOvalInRect_(r)
             r = ((x - q, y - d + q), (d, d))
             path.appendBezierPathWithOvalInRect_(r)
-            drawString((x, y - (12 * scale)), "Overlapping Points", 10, scale, color)
+            if defaults.showTitles:
+                drawString((x, y - (12 * scale)), "Overlapping Points", 10, scale, color)
     color.set()
     path.fill()
 
