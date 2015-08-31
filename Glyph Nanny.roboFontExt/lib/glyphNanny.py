@@ -33,13 +33,12 @@ defaultKeyColorRemove = defaultKeyStub + "colorRemove"
 defaultKeyColorInsert = defaultKeyStub + "colorInsert"
 
 def registerGlyphNannyDefaults():
-    defaults = {
+    storage = {
         defaultKeyObserverVisibility : False,
         defaultKeyTestStates : {}
     }
     for key in sorted(testRegistry.keys()):
-        defaults[defaultKeyTestStates][key] = True
-
+        storage[defaultKeyTestStates][key] = True
     try:
         from mojo.extensions import registerExtensionsDefaults
     except ImportError:
@@ -48,15 +47,54 @@ def registerGlyphNannyDefaults():
                 e = getExtensionDefault(k, fallback="__fallback__")
                 if e == "__fallback__":
                     setExtensionDefault(k, v)
-
-    registerExtensionsDefaults(defaults)
-
-    # handle nested
+    registerExtensionsDefaults(storage)
     nested = getExtensionDefault(defaultKeyTestStates)
-    for key, default in defaults[defaultKeyTestStates].items():
+    for key, default in storage[defaultKeyTestStates].items():
         if key not in nested:
             nested[key] = default
             setExtensionDefault(defaultKeyTestStates, nested)
+    defaults.reload()
+
+
+class DefaultsManager(object):
+
+    def __init__(self):
+        self._values = {}
+
+    def reload(self):
+        self._values = {}
+
+    # values
+
+    def getValue(self, key):
+        if key not in self._values:
+            self._values[key] = getExtensionDefault(key)
+        return self._values[key]
+
+    # Colors
+
+    def _getColor(self, key, fallback):
+        if key not in self._values:
+            color = getExtensionDefaultColor(key)
+            if color is None:
+                color = NSColor.colorWithCalibratedRed_green_blue_alpha_(*fallback)
+            self._values[key] = color
+        return self._values[key]
+
+    def colorInform(self):
+        return self._getColor(defaultKeyColorInform, (0, 0, 0.7, 0.3))
+
+    def colorInsert(self):
+        return self._getColor(defaultKeyColorInsert, (0, 1, 0, 0.75))
+
+    def colorRemove(self):
+        return self._getColor(defaultKeyColorRemove, (1, 0, 0, 0.5))
+
+    def colorReview(self):
+        return self._getColor(defaultKeyColorReview, (1, 0.7, 0, 0.7))
+
+
+defaults = DefaultsManager()
 
 # ----------------
 # Drawing Observer
@@ -75,7 +113,7 @@ class GlyphNannyObserver(object):
 
     def drawReport(self, info):
         # skip if the user doesn't want to see the report
-        display = getExtensionDefault(defaultKeyObserverVisibility)
+        display = defaults.getValue(defaultKeyObserverVisibility)
         if not display:
             return
         # make sure there is something to be tested
@@ -84,7 +122,7 @@ class GlyphNannyObserver(object):
             return
         # get the report
         font = glyph.getParent()
-        testStates = getExtensionDefault(defaultKeyTestStates)
+        testStates = defaults.getValue(defaultKeyTestStates)
         if roboFontVersion > "1.5.1":
             testStates = dictToTuple(testStates)
             report = glyph.getRepresentation("com.typesupply.GlyphNanny.Report", testStates=testStates)
@@ -114,7 +152,7 @@ class GlyphNannyPrefsWindow(object):
         self.w = vanilla.Window((264, 425), "Glyph Nanny Preferences")
 
         # global visibility
-        state = getExtensionDefault(defaultKeyObserverVisibility)
+        state = defaults.getValue(defaultKeyObserverVisibility)
         self.w.displayLiveReportTitle = vanilla.TextBox((15, 15, 150, 17), "Live report display is:")
         self.w.displayLiveReportRadioGroup = vanilla.RadioGroup((159, 15, -15, 17), ["On", "Off"], isVertical=False, callback=self.displayLiveReportRadioGroupCallback)
         self.w.displayLiveReportRadioGroup.set(not state)
@@ -124,10 +162,10 @@ class GlyphNannyPrefsWindow(object):
 
         # colors
         colors = [
-            ("Information", colorInform(), defaultKeyColorInform),
-            ("Review Something", colorReview(), defaultKeyColorReview),
-            ("Insert Something", colorInsert(), defaultKeyColorInsert),
-            ("Remove Something", colorRemove(), defaultKeyColorRemove)
+            ("Information", defaults.colorInform(), defaultKeyColorInform),
+            ("Review Something", defaults.colorReview(), defaultKeyColorReview),
+            ("Insert Something", defaults.colorInsert(), defaultKeyColorInsert),
+            ("Remove Something", defaults.colorRemove(), defaultKeyColorRemove)
         ]
         top = 290
         for title, color, key in colors:
@@ -152,7 +190,7 @@ class GlyphNannyPrefsWindow(object):
     def testStateCheckBoxCallback(self, sender):
         identifier = self.testStateControlToIdentifier[sender]
         state = sender.get()
-        defaults = getExtensionDefault(defaultKeyTestStates)
+        defaults = defaults.getValue(defaultKeyTestStates)
         defaults[identifier] = state
         setExtensionDefault(defaultKeyTestStates, defaults)
         UpdateCurrentGlyphView()
@@ -183,7 +221,7 @@ def _buildGlyphTestTabs(controller, viewTop):
                    continue
                if testData["level"] != group:
                    continue
-               state = getExtensionDefault(defaultKeyTestStates)[identifier]
+               state = defaults.getValue(defaultKeyTestStates)[identifier]
                control = vanilla.CheckBox((15, top, -15, 22), testData["title"], value=state, callback=controller.testStateCheckBoxCallback)
                top += 25
                controller.testStateControlToIdentifier[control] = identifier
@@ -196,7 +234,7 @@ def _buildGlyphTestTabs(controller, viewTop):
 # --------------
 
 def toggleObserverVisibility():
-    state = not getExtensionDefault(defaultKeyObserverVisibility)
+    state = not defaults.getValue(defaultKeyObserverVisibility)
     setExtensionDefault(defaultKeyObserverVisibility, state)
     UpdateCurrentGlyphView()
 
@@ -250,45 +288,6 @@ class GlyphNannyTestFontsWindow(BaseWindowController):
             results = getFontReport(font, testStates, format=True)
             print results
             print
-
-
-# ------
-# Colors
-# ------
-
-# Informative: Blue
-def colorInform():
-    color = getExtensionDefaultColor(defaultKeyColorInform)
-    if color is None:
-        color = NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 0, 0.7, 0.3)
-    return color
-
-# Insert Something: Green
-def colorInsert():
-    color = getExtensionDefaultColor(defaultKeyColorInsert)
-    if color is None:
-        color = NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 1, 0, 0.75)
-    return color
-
-# Remove Something: Red
-def colorRemove():
-    color = getExtensionDefaultColor(defaultKeyColorInsert)
-    if color is None:
-        color = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0, 0, 0.5)
-    return color
-
-# Review Something: Yellow-Orange
-def colorReview():
-    color = getExtensionDefaultColor(defaultKeyColorInsert)
-    if color is None:
-        color = NSColor.colorWithCalibratedRed_green_blue_alpha_(1, 0.7, 0, 0.7)
-    return color
-
-def modifyColorAlpha(color, a):
-    r = color.redComponent()
-    g = color.greenComponent()
-    b = color.blueComponent()
-    return NSColor.colorWithCalibratedRed_green_blue_alpha_(r, g, b, a)
 
 # ------
 # Orders
@@ -471,7 +470,7 @@ def drawTextReport(report, scale, glyph):
         text = "\n".join(text)
         x = 50
         y = 50
-        drawString((x, y), text, 16, scale, colorInform(), alignment="left")
+        drawString((x, y), text, 16, scale, defaults.colorInform(), alignment="left")
 
 # Unicode Value
 
@@ -557,7 +556,7 @@ def drawStemWidths(data, scale, glyph):
         return
     font = glyph.getParent()
     b = font.info.unitsPerEm * 0.25
-    color = textColor = colorReview()
+    color = textColor = defaults.colorReview()
     color = modifyColorAlpha(color, 0.1)
     # horizontal
     x = -b
@@ -794,7 +793,7 @@ def drawLigatureMetrics(data, scale, glyph):
     xMin, yMin, xMax, yMax = data["box"]
     h = (yMax - yMin) / 2.0
     y = yMax - h + (20 * scale)
-    _drawSideBearingsReport(data, scale, y, colorReview())
+    _drawSideBearingsReport(data, scale, y, defaults.colorReview())
 
 def _drawSideBearingsReport(data, scale, textPosition, color):
     left = data["left"]
@@ -907,7 +906,7 @@ def drawComponentMetrics(data, scale, glyph):
     xMin, yMin, xMax, yMax = data["box"]
     h = (yMax - yMin) / 2.0
     y = yMax - h - (20 * scale)
-    _drawSideBearingsReport(data, scale, y, colorReview())
+    _drawSideBearingsReport(data, scale, y, defaults.colorReview())
 
 registerTest(
     identifier="componentMetrics",
@@ -937,7 +936,7 @@ def testMetricsSymmetry(glyph):
     return None
 
 def drawMetricsSymmetry(data, scale, glyph):
-    color = colorReview()
+    color = defaults.colorReview()
     left = data["left"]
     right = data["right"]
     width = data["width"]
@@ -998,7 +997,7 @@ def testDuplicateContours(glyph):
 
 def drawDuplicateContours(contours, scale, glyph):
     font = glyph.getParent()
-    color = colorRemove()
+    color = defaults.colorRemove()
     color.set()
     for contourIndex in contours:
         contour = glyph[contourIndex]
@@ -1041,7 +1040,7 @@ def testForSmallContours(glyph):
     return smallContours
 
 def drawSmallContours(contours, scale, glyph):
-    color = colorRemove()
+    color = defaults.colorRemove()
     color.set()
     for contourIndex, box in contours.items():
         xMin, yMin, xMax, yMax = box
@@ -1082,7 +1081,7 @@ def testForOpenContours(glyph):
     return openContours
 
 def drawOpenContours(contours, scale, glyph):
-    color = colorInsert()
+    color = defaults.colorInsert()
     color.set()
     for contourIndex, points in contours.items():
         start, end = points
@@ -1123,7 +1122,7 @@ def testForExtremePoints(glyph):
     return pointsAtExtrema
 
 def drawExtremePoints(contours, scale, glyph):
-    color = colorInsert()
+    color = defaults.colorInsert()
     path = NSBezierPath.bezierPath()
     d = 16 * scale
     h = d / 2.0
@@ -1242,7 +1241,7 @@ def drawSlightlyAsymmetricCurves(data, scale, glyph):
         curvePen.curveTo(pt1, pt2, pt3)
         offCurves.append(pt1)
         offCurves.append(pt2)
-    color = colorReview()
+    color = defaults.colorReview()
     color = modifyColorAlpha(color, 0.5)
     color.set()
     path = curvePen.path
@@ -1251,8 +1250,7 @@ def drawSlightlyAsymmetricCurves(data, scale, glyph):
     path = handlePen.path
     path.setLineWidth_(1.0 * scale)
     path.stroke()
-    d = 6 * scale
-    path = drawCircles(offCurves, d)
+    path = drawCircles(offCurves, 6, scale)
     color.set()
     path.fill()
 
@@ -1395,7 +1393,7 @@ def testForStraightLines(glyph):
     return straightLines
 
 def drawStraightLines(contours, scale, glyph):
-    color = colorReview()
+    color = defaults.colorReview()
     color.set()
     for contourIndex, segments in contours.items():
         for segment in segments:
@@ -1476,7 +1474,7 @@ def _testPointNearVerticalMetrics(pt, verticalMetrics):
     return False, None
 
 def drawSegmentsNearVericalMetrics(verticalMetrics, scale, glyph):
-    color = colorReview()
+    color = defaults.colorReview()
     path = NSBezierPath.bezierPath()
     for verticalMetric, points in verticalMetrics.items():
         xMin = None
@@ -1532,7 +1530,7 @@ def testUnsmoothSmooths(glyph):
     return unsmoothSmooths
 
 def drawUnsmoothSmooths(contours, scale, glyph):
-    color = colorReview()
+    color = defaults.colorReview()
     color.set()
     for contourIndex, points in contours.items():
         path = NSBezierPath.bezierPath()
@@ -1577,7 +1575,7 @@ def testForComplexCurves(glyph):
     return impliedS
 
 def drawComplexCurves(contours, scale, glyph):
-    color = colorReview()
+    color = defaults.colorReview()
     color.set()
     for contourIndex, segments in contours.items():
         for segment in segments:
@@ -1659,7 +1657,7 @@ def testForCrossedHandles(glyph):
 def drawCrossedHandles(contours, scale, glyph):
     d = 10 * scale
     h = d / 2.0
-    color = colorReview()
+    color = defaults.colorReview()
     color.set()
     for contourIndex, segments in contours.items():
         for segment in segments:
@@ -1717,7 +1715,7 @@ def testForUnnecessaryHandles(glyph):
     return unnecessaryHandles
 
 def drawUnnecessaryHandles(contours, scale, glyph):
-    color = colorRemove()
+    color = defaults.colorRemove()
     color.set()
     d = 10 * scale
     h = d / 2.0
@@ -1812,7 +1810,7 @@ def _getUnevenHandleShape(pt0, pt1, pt2, pt3, intersection, start, end, off):
     return curves + [off, start]
 
 def drawUnevenHandles(contours, scale, glyph):
-    strokeColor = colorReview()
+    strokeColor = defaults.colorReview()
     fillColor = modifyColorAlpha(strokeColor, 0.15)
     for index, groups in contours.items():
         for off1, off2, shape1, shape2 in groups:
@@ -1867,7 +1865,7 @@ def testForStrayPoints(glyph):
     return strayPoints
 
 def drawStrayPoints(contours, scale, glyph):
-    color = colorRemove()
+    color = defaults.colorRemove()
     path = NSBezierPath.bezierPath()
     d = 20 * scale
     h = d / 2.0
@@ -1910,7 +1908,7 @@ def testForUnnecessaryPoints(glyph):
     return unnecessaryPoints
 
 def drawUnnecessaryPoints(contours, scale, glyph):
-    color = colorRemove()
+    color = defaults.colorRemove()
     path = NSBezierPath.bezierPath()
     for contourIndex, points in contours.items():
         for pt in points:
@@ -1951,7 +1949,7 @@ def testForOverlappingPoints(glyph):
     return overlappingPoints
 
 def drawOverlappingPoints(contours, scale, glyph):
-    color = colorRemove()
+    color = defaults.colorRemove()
     path = NSBezierPath.bezierPath()
     d = 10 * scale
     h = d / 2.0
@@ -2061,6 +2059,12 @@ def _getLineCurveIntersection(line, curve):
 # -----------------
 # Drawing Utilities
 # -----------------
+
+def modifyColorAlpha(color, a):
+    r = color.redComponent()
+    g = color.greenComponent()
+    b = color.blueComponent()
+    return NSColor.colorWithCalibratedRed_green_blue_alpha_(r, g, b, a)
 
 def drawLine(pt1, pt2, scale, arrowStart=False, arrowEnd=False, path=None):
     if path is None:
