@@ -1216,6 +1216,8 @@ def testForSlightlyAssymmetricCurves(glyph):
             curve2Compare = _relativizeCurve(curve2)
             if curve1 is None or curve2 is None:
                 continue
+            if curve1Compare is None or curve2Compare is None:
+                continue
             flipped = curve1Compare.getFlip(curve2Compare)
             if flipped:
                 slightlyAsymmetricalCurves.append(flipped)
@@ -1250,7 +1252,9 @@ def drawSlightlyAsymmetricCurves(data, scale, glyph):
     path.setLineWidth_(1.0 * scale)
     path.stroke()
     d = 6 * scale
-    drawCircles(offCurves, d, fill=color)
+    path = drawCircles(offCurves, d)
+    color.set()
+    path.fill()
 
 registerTest(
     identifier="curveSymmetry",
@@ -2058,7 +2062,59 @@ def _getLineCurveIntersection(line, curve):
 # Drawing Utilities
 # -----------------
 
-def drawDeleteMark(pt, scale, path):
+def drawLine(pt1, pt2, scale, arrowStart=False, arrowEnd=False, path=None):
+    if path is None:
+        path = NSBezierPath.bezierPath()
+    path.moveToPoint_(pt1)
+    path.lineToPoint_(pt2)
+    if arrowStart or arrowEnd:
+        x1, y1 = pt1
+        x2, y2 = pt2
+        angle = math.atan2(y2-y1, x2-x1)
+        headLength = 10 * scale
+        headAngle = 5
+        if arrowStart:
+            h1 = (
+                x1 + headLength * math.cos(angle - math.pi / headAngle),
+                y1 + headLength * math.sin(angle - math.pi / headAngle)
+            )
+            h2 = (
+                x1 + headLength * math.cos(angle + math.pi / headAngle),
+                y1 + headLength * math.sin(angle + math.pi / headAngle)
+            )
+            path.moveToPoint_(h1)
+            path.lineToPoint_(pt1)
+            path.lineToPoint_(h2)
+        if arrowEnd:
+            h1 = (
+                x2 - headLength * math.cos(angle - math.pi / headAngle),
+                y2 - headLength * math.sin(angle - math.pi / headAngle)
+            )
+            h2 = (
+                x2 - headLength * math.cos(angle + math.pi / headAngle),
+                y2 - headLength * math.sin(angle + math.pi / headAngle)
+            )
+            path.moveToPoint_(h1)
+            path.lineToPoint_(pt2)
+            path.lineToPoint_(h2)
+    return path
+
+def drawCircles(points, size, scale, path=None):
+    if path is None:
+        path = NSBezierPath.bezierPath()
+    size *= scale
+    h = size / 2
+    for (x, y) in points:
+        rect = ((x - h, y - h), (size, size))
+        path.appendBezierPathWithOvalInRect_(rect)
+    return path
+
+def drawAddMark(pt, scale, path=None):
+    pass
+
+def drawDeleteMark(pt, scale, path=None):
+    if path is None:
+        path = NSBezierPath.bezierPath()
     h = 6 * scale
     x, y = pt
     x1 = x - h
@@ -2069,6 +2125,7 @@ def drawDeleteMark(pt, scale, path):
     path.lineToPoint_((x2, y2))
     path.moveToPoint_((x1, y2))
     path.lineToPoint_((x2, y1))
+    return path
 
 def drawString(pt, text, size, scale, color, alignment="center", backgroundColor=None):
     attributes = attributes = {
@@ -2088,19 +2145,6 @@ def drawString(pt, text, size, scale, color, alignment="center", backgroundColor
         width, height = text.size()
         x -= width
     text.drawAtPoint_((x, y))
-
-def drawCircles(points, size, fill=None, stroke=None):
-    path = NSBezierPath.bezierPath()
-    h = size / 2
-    for (x, y) in points:
-        rect = ((x - h, y - h), (size, size))
-        path.appendBezierPathWithOvalInRect_(rect)
-    if fill:
-        fill.set()
-        path.fill()
-    if stroke:
-        stroke.set()
-        path.stroke()
 
 def calcMid(pt1, pt2):
     x1, y1 = pt1
