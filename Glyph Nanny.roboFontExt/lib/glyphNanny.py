@@ -1025,19 +1025,19 @@ def testDuplicateContours(glyph):
 def drawDuplicateContours(contours, scale, glyph):
     font = glyph.getParent()
     color = defaults.colorRemove
-    pen = CocoaPen(None)
+    color.set()
     for contourIndex in contours:
+        pen = CocoaPen(None)
         contour = glyph[contourIndex]
         contour.draw(pen)
+        path = pen.path
+        path.setLineWidth_(highlightLineWidth * scale)
+        path.stroke()
         if defaults.showTitles:
             xMin, yMin, xMax, yMax = contour.box
             mid = calcMid((xMin, yMin), (xMax, yMin))
             x, y = mid
             drawString((x, y - (10 * scale)), "Duplicate Contour", 10, scale, color)
-    color.set()
-    path = pen.path
-    path.setLineWidth_(highlightLineWidth * scale)
-    path.stroke()
 
 registerTest(
     identifier="duplicateContours",
@@ -1071,13 +1071,15 @@ def drawSmallContours(contours, scale, glyph):
     color = defaults.colorRemove
     color.set()
     for contourIndex, box in contours.items():
-        xMin, yMin, xMax, yMax = box
-        w = xMax - xMin
-        h = yMax - yMin
-        r = ((xMin, yMin), (w, h))
-        r = NSInsetRect(r, -5 * scale, -5 * scale)
-        NSRectFillUsingOperation(r, NSCompositeSourceOver)
+        pen = CocoaPen(None)
+        contour = glyph[contourIndex]
+        contour.draw(pen)
+        path = pen.path
+        path.setLineWidth_(highlightLineWidth * scale)
+        path.stroke()
         if defaults.showTitles:
+            xMin, yMin, xMax, yMax = box
+            w = xMax - xMin
             x = xMin + (w / 2)
             y = yMin - (10 * scale)
             drawString((x, y), "Tiny Contour", 10, scale, color)
