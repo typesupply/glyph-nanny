@@ -502,7 +502,7 @@ def drawTextReport(report, scale, glyph):
     if text:
         text = "\n".join(text)
         x = 50
-        y = 50
+        y = -50
         drawString((x, y), text, scale, defaults.colorInform, hAlignment="left")
 
 # Unicode Value
