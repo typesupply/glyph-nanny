@@ -1752,20 +1752,16 @@ def drawUnnecessaryHandles(contours, scale, glyph):
     h = d / 2.0
     for contourIndex, points in contours.items():
         for bcp1, bcp2 in points:
-            # line
-            path1 = NSBezierPath.bezierPath()
-            path1.moveToPoint_(bcp1)
-            path1.lineToPoint_(bcp2)
-            path1.setLineWidth_(3 * scale)
-            path1.stroke()
-            # dots
-            path2 = NSBezierPath.bezierPath()
-            for (x, y) in (bcp1, bcp2):
-                r = ((x - h, y - h), (d, d))
-                path2.appendBezierPathWithOvalInRect_(r)
-            path2.setLineWidth_(scale)
-            path2.stroke()
-            # text
+            path = NSBezierPath.bezierPath()
+            drawDeleteMark(bcp1, scale, path=path)
+            drawDeleteMark(bcp2, scale, path=path)
+            path.setLineWidth_(generalLineWidth * scale)
+            path.stroke()
+            path = NSBezierPath.bezierPath()
+            path.moveToPoint_(bcp1)
+            path.lineToPoint_(bcp2)
+            path.setLineWidth_(highlightLineWidth * scale)
+            path.stroke()
             if defaults.showTitles:
                 mid = calcMid(bcp1, bcp2)
                 drawString(mid, "Unnecessary Handles", 10, scale, color, backgroundColor=NSColor.whiteColor())
