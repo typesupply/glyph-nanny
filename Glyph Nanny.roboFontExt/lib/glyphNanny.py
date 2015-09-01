@@ -1543,7 +1543,7 @@ def drawUnsmoothSmooths(contours, scale, glyph):
         for pt1, pt2, pt3 in points:
             path.moveToPoint_(pt1)
             path.lineToPoint_(pt3)
-            path.setLineWidth_(2 * scale)
+            path.setLineWidth_(highlightLineWidth * scale)
             path.stroke()
             if defaults.showTitles:
                 x, y = pt2
