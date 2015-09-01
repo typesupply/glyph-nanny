@@ -560,7 +560,7 @@ registerTest(
 
 def testStemWidths(glyph):
     """
-    Test for stem width consistency.
+    Stem widths should be consistent.
     """
     hProblems = vProblems = None
     font = glyph.getParent()
