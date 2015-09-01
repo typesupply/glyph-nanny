@@ -1590,7 +1590,7 @@ def drawComplexCurves(contours, scale, glyph):
             path = NSBezierPath.bezierPath()
             path.moveToPoint_(pt0)
             path.curveToPoint_controlPoint1_controlPoint2_(pt3, pt1, pt2)
-            path.setLineWidth_(3 * scale)
+            path.setLineWidth_(highlightLineWidth * scale)
             path.setLineCapStyle_(NSRoundLineCapStyle)
             path.stroke()
             if defaults.showTitles:
