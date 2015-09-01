@@ -1680,7 +1680,7 @@ def drawCrossedHandles(contours, scale, glyph):
             x, y = pt5
             r = ((x - h, y - h), (d, d))
             path2.appendBezierPathWithOvalInRect_(r)
-            path1.setLineWidth_(3 * scale)
+            path1.setLineWidth_(highlightLineWidth * scale)
             path1.setLineCapStyle_(NSRoundLineCapStyle)
             path1.stroke()
             path2.fill()
