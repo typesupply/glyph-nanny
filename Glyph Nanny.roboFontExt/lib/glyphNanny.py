@@ -1117,7 +1117,7 @@ def drawOpenContours(contours, scale, glyph):
     for contourIndex, points in contours.items():
         start, end = points
         path = drawLine(start, end, scale=scale, arrowStart=True)
-        path.setLineWidth_(1 * scale)
+        path.setLineWidth_(generalLineWidth * scale)
         path.stroke()
         if defaults.showTitles:
             mid = calcMid(start, end)
@@ -1158,16 +1158,11 @@ def drawExtremePoints(contours, scale, glyph):
     o = 3 * scale
     for contourIndex, points in contours.items():
         for (x, y) in points:
-            r = ((x - h, y - h), (d, d))
-            path.appendBezierPathWithOvalInRect_(r)
-            path.moveToPoint_((x - h + o, y))
-            path.lineToPoint_((x + h - o, y))
-            path.moveToPoint_((x, y - h + o))
-            path.lineToPoint_((x, y + h - o))
+            drawAddMark((x, y), scale, path=path)
             if defaults.showTitles:
                 drawString((x, y - (16 * scale)), "Insert Point", 10, scale, color)
     color.set()
-    path.setLineWidth_(scale)
+    path.setLineWidth_(generalLineWidth * scale)
     path.stroke()
 
 registerTest(
@@ -1249,40 +1244,34 @@ def testForSlightlyAssymmetricCurves(glyph):
                 continue
             flipped = curve1Compare.getFlip(curve2Compare)
             if flipped:
-                slightlyAsymmetricalCurves.append(flipped)
+                slightlyAsymmetricalCurves.append((flipped, curve2))
     # done
     if not slightlyAsymmetricalCurves:
         return None
     return slightlyAsymmetricalCurves
 
 def drawSlightlyAsymmetricCurves(data, scale, glyph):
-    handlePen = CocoaPen(None)
-    curvePen = CocoaPen(None)
-    offCurves = []
-    for curve in data:
-        if curve is None:
-            continue
-        pt0, pt1, pt2, pt3 = curve
-        handlePen.moveTo(pt0)
-        handlePen.lineTo(pt1)
-        handlePen.moveTo(pt3)
-        handlePen.lineTo(pt2)
-        curvePen.moveTo(pt0)
-        curvePen.curveTo(pt1, pt2, pt3)
-        offCurves.append(pt1)
-        offCurves.append(pt2)
+    arrowPath = NSBezierPath.bezierPath()
+    curvePath = NSBezierPath.bezierPath()
+    for toCurve, fromCurve in data:
+        to3, to2, to1, to0 = toCurve
+        from0, from1, from2, from3 = fromCurve
+        if to0 != from0:
+            drawLine(from0, to0, scale=scale, path=arrowPath, arrowEnd=True)
+        if to1 != from1:
+            drawLine(from1, to1, scale=scale, path=arrowPath, arrowEnd=True)
+        if to2 != from2:
+            drawLine(from2, to2, scale=scale, path=arrowPath, arrowEnd=True)
+        if to3 != from3:
+            drawLine(from3, to3, scale=scale, path=arrowPath, arrowEnd=True)
+        curvePath.moveToPoint_(to3)
+        curvePath.curveToPoint_controlPoint1_controlPoint2_(to0, to2, to1)
     color = defaults.colorReview
-    color = modifyColorAlpha(color, 0.5)
     color.set()
-    path = curvePen.path
-    path.setLineWidth_(1.0 * scale)
-    path.stroke()
-    path = handlePen.path
-    path.setLineWidth_(1.0 * scale)
-    path.stroke()
-    path = drawCircles(offCurves, 6, scale)
-    color.set()
-    path.fill()
+    arrowPath.setLineWidth_(generalLineWidth * scale)
+    arrowPath.stroke()
+    curvePath.setLineWidth_(generalLineWidth * scale)
+    curvePath.stroke()
 
 registerTest(
     identifier="curveSymmetry",
@@ -2152,7 +2141,17 @@ def drawCircles(points, size, scale, path=None):
     return path
 
 def drawAddMark(pt, scale, path=None):
-    pass
+    if path is None:
+        path = NSBezierPath.bezierPath()
+    d = 16 * scale
+    h = d / 2.0
+    o = 3 * scale
+    x, y = pt
+    path.moveToPoint_((x - h + o, y))
+    path.lineToPoint_((x + h - o, y))
+    path.moveToPoint_((x, y - h + o))
+    path.lineToPoint_((x, y + h - o))
+    return path
 
 def drawDeleteMark(pt, scale, path=None):
     if path is None:
