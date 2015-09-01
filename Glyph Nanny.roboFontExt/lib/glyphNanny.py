@@ -1608,6 +1608,19 @@ registerTest(
 
 # Crossed Handles
 
+def _crossedHanldeWithNoOtherOptions(hit, pt0, pt1, pt2, pt3):
+    hitWidth = max((abs(hit[0] - pt0[0]), abs(hit[0] - pt3[0])))
+    hitHeight = max((abs(hit[1] - pt0[1]), abs(hit[1] - pt3[1])))
+    w = abs(pt0[0] - pt3[0])
+    h = abs(pt0[1] - pt3[1])
+    bw = max((abs(pt0[0] - pt1[0]), abs(pt3[0] - pt2[0])))
+    bh = max((abs(pt0[1] - pt1[1]), abs(pt3[1] - pt2[1])))
+    if w == 1 and bw == 1 and not bh > h:
+        return True
+    elif h == 1 and bh == 1 and not bw > w:
+        return True
+    return False
+
 def testForCrossedHandles(glyph):
     """
     Handles shouldn't intersect.
@@ -1622,9 +1635,12 @@ def testForCrossedHandles(glyph):
                 # direct intersection
                 direct = _intersectLines((pt0, pt1), (pt2, pt3))
                 if direct:
-                    if index not in crossedHandles:
-                        crossedHandles[index] = []
-                    crossedHandles[index].append(dict(points=(pt0, pt1, pt2, pt3), intersection=direct))
+                    if _crossedHanldeWithNoOtherOptions(direct, pt0, pt1, pt2, pt3):
+                        pass
+                    else:
+                        if index not in crossedHandles:
+                            crossedHandles[index] = []
+                        crossedHandles[index].append(dict(points=(pt0, pt1, pt2, pt3), intersection=direct))
                 # indirect intersection
                 else:
                     while 1:
@@ -1639,9 +1655,12 @@ def testForCrossedHandles(glyph):
                             t2 = (pt0[0] - 1000, pt0[1] - yOffset)
                         indirect = _intersectLines((t1, t2), (pt2, pt3))
                         if indirect:
-                            if index not in crossedHandles:
-                                crossedHandles[index] = []
-                            crossedHandles[index].append(dict(points=(pt0, indirect, pt2, pt3), intersection=indirect))
+                            if _crossedHanldeWithNoOtherOptions(indirect, pt0, pt1, pt2, pt3):
+                                pass
+                            else:
+                                if index not in crossedHandles:
+                                    crossedHandles[index] = []
+                                crossedHandles[index].append(dict(points=(pt0, indirect, pt2, pt3), intersection=indirect))
                             break
                         # bcp1 = segment, bcp2 = ray
                         angle = _calcAngle(pt3, pt2)
@@ -1654,9 +1673,12 @@ def testForCrossedHandles(glyph):
                             t2 = (pt3[0] - 1000, pt3[1] - yOffset)
                         indirect = _intersectLines((t1, t2), (pt0, pt1))
                         if indirect:
-                            if index not in crossedHandles:
-                                crossedHandles[index] = []
-                            crossedHandles[index].append(dict(points=(pt0, pt1, indirect, pt3), intersection=indirect))
+                            if _crossedHanldeWithNoOtherOptions(indirect, pt0, pt1, pt2, pt3):
+                                pass
+                            else:
+                                if index not in crossedHandles:
+                                    crossedHandles[index] = []
+                                crossedHandles[index].append(dict(points=(pt0, pt1, indirect, pt3), intersection=indirect))
                             break
                         break
             pt0 = pt3
