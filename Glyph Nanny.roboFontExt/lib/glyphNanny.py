@@ -26,6 +26,8 @@ DEBUG = True
 
 generalLineWidth = 1
 highlightLineWidth = 4
+textSize = 10
+textVerticalOffset = 10
 
 defaultKeyStub = "com.typesupply.GlyphNanny."
 defaultKeyObserverVisibility = defaultKeyStub + "displayReportInGlyphView"
@@ -501,7 +503,7 @@ def drawTextReport(report, scale, glyph):
         text = "\n".join(text)
         x = 50
         y = 50
-        drawString((x, y), text, 16, scale, defaults.colorInform, alignment="left")
+        drawString((x, y), text, scale, defaults.colorInform, hAlignment="left")
 
 # Unicode Value
 
@@ -599,7 +601,7 @@ def drawStemWidths(data, scale, glyph):
         path.stroke()
         if defaults.showTitles:
             tX, tY = calcMid((xM, y1), (xM, y2))
-            drawString((tX, tY), "Check Stem", 10, scale, textColor, alignment="center", backgroundColor=NSColor.whiteColor())
+            drawString((tX, tY), "Check Stem", scale, textColor, backgroundColor=NSColor.whiteColor())
     # horizontal
     y = font.info.descender - b
     h = max((font.info.ascender, font.info.capHeight)) - y + (b * 2)
@@ -611,8 +613,7 @@ def drawStemWidths(data, scale, glyph):
         path.stroke()
         if defaults.showTitles:
             tX, tY = calcMid((x1, yM), (x2, yM))
-            tY -= 15 * scale
-            drawString((tX, tY), "Check Stem", 10, scale, textColor, alignment="center", backgroundColor=NSColor.whiteColor())
+            drawString((tX, tY), "Check Stem", scale, textColor, vAlignment="center", backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="stemWidths",
@@ -851,14 +852,14 @@ def _drawSideBearingsReport(data, scale, textPosition, color):
         path.stroke()
         if defaults.showTitles:
             x = min((0, left)) - (5 * scale)
-            drawString((x, y), leftMessage, 10, scale, color, alignment="right")
+            drawString((x, y), leftMessage, scale, color, hAlignment="right")
     if rightMessage:
         path = drawLine((right, y), (width, y), scale=scale, arrowEnd=True)
         path.setLineWidth_(generalLineWidth * scale)
         path.stroke()
         if defaults.showTitles:
             x = min((0, left)) - (5 * scale)
-            drawString((x, y), rightMessage, 10, scale, color, alignment="left")
+            drawString((x, y), rightMessage, scale, color, hAlignment="left")
 
 registerTest(
     identifier="ligatureMetrics",
@@ -984,7 +985,7 @@ def drawMetricsSymmetry(data, scale, glyph):
     path.setLineWidth_(generalLineWidth * scale)
     path.stroke()
     if defaults.showTitles:
-        drawString((x, y), message, 10, scale, color, backgroundColor=NSColor.whiteColor())
+        drawString((x, y), message, scale, color, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="metricsSymmetry",
@@ -1037,7 +1038,7 @@ def drawDuplicateContours(contours, scale, glyph):
             xMin, yMin, xMax, yMax = contour.box
             mid = calcMid((xMin, yMin), (xMax, yMin))
             x, y = mid
-            drawString((x, y - (10 * scale)), "Duplicate Contour", 10, scale, color)
+            drawString((x, y), "Duplicate Contour", scale, color, vAlignment="top", vOffset="-y")
 
 registerTest(
     identifier="duplicateContours",
@@ -1081,8 +1082,8 @@ def drawSmallContours(contours, scale, glyph):
             xMin, yMin, xMax, yMax = box
             w = xMax - xMin
             x = xMin + (w / 2)
-            y = yMin - (10 * scale)
-            drawString((x, y), "Tiny Contour", 10, scale, color)
+            y = yMin
+            drawString((x, y), "Tiny Contour", scale, color, vAlignment="top", vOffset="-y")
 
 registerTest(
     identifier="smallContours",
@@ -1121,7 +1122,7 @@ def drawOpenContours(contours, scale, glyph):
         path.stroke()
         if defaults.showTitles:
             mid = calcMid(start, end)
-            drawString(mid, "Open Contour", 10, scale, color, backgroundColor=NSColor.whiteColor())
+            drawString(mid, "Open Contour", scale, color, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="openContours",
@@ -1160,7 +1161,7 @@ def drawExtremePoints(contours, scale, glyph):
         for (x, y) in points:
             drawAddMark((x, y), scale, path=path)
             if defaults.showTitles:
-                drawString((x, y - (16 * scale)), "Insert Point", 10, scale, color)
+                drawString((x, y), "Insert Point", scale, color, vAlignment="top", vOffset="-y")
     color.set()
     path.setLineWidth_(generalLineWidth * scale)
     path.stroke()
@@ -1547,7 +1548,7 @@ def drawUnsmoothSmooths(contours, scale, glyph):
             path.stroke()
             if defaults.showTitles:
                 x, y = pt2
-                drawString((x, y - (10 * scale)), "Unsmooth Smooth", 10, scale, color, backgroundColor=NSColor.whiteColor())
+                drawString((x, y), "Unsmooth Smooth", scale, color, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="unsmoothSmooths",
@@ -1595,7 +1596,7 @@ def drawComplexCurves(contours, scale, glyph):
             path.stroke()
             if defaults.showTitles:
                 mid = ftBezierTools.splitCubicAtT(pt0, pt1, pt2, pt3, 0.5)[0][-1]
-                drawString(mid, "Complex Curve", 10, scale, color, backgroundColor=NSColor.whiteColor())
+                drawString(mid, "Complex Curve", scale, color, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="complexCurves",
@@ -1707,7 +1708,7 @@ def drawCrossedHandles(contours, scale, glyph):
             path1.stroke()
             path2.fill()
             if defaults.showTitles:
-                drawString((x, y - (12 * scale)), "Crossed Handles", 10, scale, color, backgroundColor=NSColor.whiteColor())
+                drawString((x, y), "Crossed Handles", scale, color, vAlignment="top", vOffset="-y", backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="crossedHandles",
@@ -1764,7 +1765,7 @@ def drawUnnecessaryHandles(contours, scale, glyph):
             path.stroke()
             if defaults.showTitles:
                 mid = calcMid(bcp1, bcp2)
-                drawString(mid, "Unnecessary Handles", 10, scale, color, backgroundColor=NSColor.whiteColor())
+                drawString(mid, "Unnecessary Handles", scale, color, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="unnecessaryHandles",
@@ -1854,7 +1855,7 @@ def drawUnevenHandles(contours, scale, glyph):
             path.fill()
             if defaults.showTitles:
                 mid = calcMid(off1, off2)
-                drawString(mid, "Uneven Handles", 10, scale, textColor, backgroundColor=NSColor.whiteColor())
+                drawString(mid, "Uneven Handles", scale, textColor, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="unevenHandles",
@@ -1890,11 +1891,10 @@ def testForStrayPoints(glyph):
 def drawStrayPoints(contours, scale, glyph):
     color = defaults.colorRemove
     path = NSBezierPath.bezierPath()
-    d = 20 * scale
     for contourIndex, (x, y) in contours.items():
         drawDeleteMark((x, y), scale, path=path)
         if defaults.showTitles:
-            drawString((x, y - d), "Stray Point", 10, scale, color)
+            drawString((x, y), "Stray Point", scale, color, vAlignment="top", vOffset="-y")
     color.set()
     path.setLineWidth_(generalLineWidth * scale)
     path.stroke()
@@ -1937,7 +1937,7 @@ def drawUnnecessaryPoints(contours, scale, glyph):
             drawDeleteMark(pt, scale, path)
             if defaults.showTitles:
                 x, y = pt
-                drawString((x, y - (10 * scale)), "Unnecessary Point", 10, scale, color)
+                drawString((x, y), "Unnecessary Point", scale, color, vAlignment="top", vOffset="-y")
     color.set()
     path.setLineWidth_(2 * scale)
     path.stroke()
@@ -1978,7 +1978,7 @@ def drawOverlappingPoints(contours, scale, glyph):
         for (x, y) in points:
             drawDeleteMark((x, y), scale, path)
             if defaults.showTitles:
-                drawString((x, y - (12 * scale)), "Overlapping Points", 10, scale, color)
+                drawString((x, y), "Overlapping Points", scale, color, vAlignment="top", vOffset="-y")
     color.set()
     path.setLineWidth_(generalLineWidth * scale)
     path.stroke()
@@ -2158,9 +2158,9 @@ def drawDeleteMark(pt, scale, path=None):
     path.lineToPoint_((x2, y1))
     return path
 
-def drawString(pt, text, size, scale, color, alignment="center", backgroundColor=None):
+def drawString(pt, text, scale, color, hAlignment="center", vAlignment="center", vOffset=None, backgroundColor=None):
     attributes = attributes = {
-        NSFontAttributeName : NSFont.fontWithName_size_("Lucida Grande", size * scale),
+        NSFontAttributeName : NSFont.fontWithName_size_("Lucida Grande", textSize * scale),
         NSForegroundColorAttributeName : color
     }
     if backgroundColor is not None:
@@ -2168,13 +2168,19 @@ def drawString(pt, text, size, scale, color, alignment="center", backgroundColor
         attributes[NSBackgroundColorAttributeName] = backgroundColor
     text = NSAttributedString.alloc().initWithString_attributes_(text, attributes)
     x, y = pt
-    if alignment == "center":
-        width, height = text.size()
+    width, height = text.size()
+    if hAlignment == "center":
         x -= width / 2.0
-        y -= height / 2.0
-    elif alignment == "right":
-        width, height = text.size()
+    elif hAlignment == "right":
         x -= width
+    if vAlignment == "center":
+        y -= height / 2.0
+    elif vAlignment == "top":
+        y -= height
+    if vOffset == "y":
+        y += textVerticalOffset * scale
+    elif vOffset == "-y":
+        y -= textVerticalOffset * scale
     text.drawAtPoint_((x, y))
 
 def calcMid(pt1, pt2):

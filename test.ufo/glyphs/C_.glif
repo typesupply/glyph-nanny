@@ -2,6 +2,9 @@
 <glyph name="C" format="1">
   <advance width="310"/>
   <unicode hex="0043"/>
+  <note>
+    This test case is for evaluating asymmetric curves.
+  </note>
   <outline>
     <contour>
       <point x="210" y="115" type="curve"/>
