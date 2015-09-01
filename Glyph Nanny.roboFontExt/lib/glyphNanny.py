@@ -1411,11 +1411,11 @@ def testForStraightLines(glyph):
             if segment.type == "line":
                 x = abs(prev[0] - point[0])
                 y = abs(prev[1] - point[1])
-                if x > 0 and x <= 5:
+                if x > 0 and x <= 5 and prev[1] != point[1]:
                     if index not in straightLines:
                         straightLines[index] = set()
                     straightLines[index].add((prev, point))
-                if y > 0 and y <= 5:
+                if y > 0 and y <= 5 and prev[0] != point[0]:
                     if index not in straightLines:
                         straightLines[index] = set()
                     straightLines[index].add((prev, point))
