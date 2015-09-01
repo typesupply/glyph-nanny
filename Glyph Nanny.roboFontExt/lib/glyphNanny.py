@@ -1428,8 +1428,8 @@ def drawStraightLines(contours, scale, glyph):
             w = xMax - xMin
             h = yMax - yMin
             r = ((xMin, yMin), (w, h))
-            r = NSInsetRect(r, -2 * scale, -2 * scale)
-            NSRectFillUsingOperation(r, NSCompositeSourceOver)
+            r = NSInsetRect(r, -10 * scale, -10 * scale)
+            NSFrameRectWithWidthUsingOperation(r, generalLineWidth * scale, NSCompositeSourceOver)
 
 registerTest(
     identifier="straightLines",
