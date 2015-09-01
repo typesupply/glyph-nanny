@@ -1891,14 +1891,12 @@ def drawStrayPoints(contours, scale, glyph):
     color = defaults.colorRemove
     path = NSBezierPath.bezierPath()
     d = 20 * scale
-    h = d / 2.0
     for contourIndex, (x, y) in contours.items():
-        r = ((x - h, y - h), (d, d))
-        path.appendBezierPathWithOvalInRect_(r)
+        drawDeleteMark((x, y), scale, path=path)
         if defaults.showTitles:
             drawString((x, y - d), "Stray Point", 10, scale, color)
     color.set()
-    path.setLineWidth_(scale)
+    path.setLineWidth_(generalLineWidth * scale)
     path.stroke()
 
 registerTest(
@@ -1976,19 +1974,14 @@ def testForOverlappingPoints(glyph):
 def drawOverlappingPoints(contours, scale, glyph):
     color = defaults.colorRemove
     path = NSBezierPath.bezierPath()
-    d = 10 * scale
-    h = d / 2.0
-    q = h / 2.0
     for contourIndex, points in contours.items():
         for (x, y) in points:
-            r = ((x - d + q, y - q), (d, d))
-            path.appendBezierPathWithOvalInRect_(r)
-            r = ((x - q, y - d + q), (d, d))
-            path.appendBezierPathWithOvalInRect_(r)
+            drawDeleteMark((x, y), scale, path)
             if defaults.showTitles:
                 drawString((x, y - (12 * scale)), "Overlapping Points", 10, scale, color)
     color.set()
-    path.fill()
+    path.setLineWidth_(generalLineWidth * scale)
+    path.stroke()
 
 registerTest(
     identifier="overlappingPoints",
@@ -2101,7 +2094,7 @@ def drawLine(pt1, pt2, scale, arrowStart=False, arrowEnd=False, path=None):
         x1, y1 = pt1
         x2, y2 = pt2
         angle = math.atan2(y2-y1, x2-x1)
-        headLength = 10 * scale
+        headLength = 16 * scale
         headAngle = 5
         if arrowStart:
             h1 = (
@@ -2142,20 +2135,18 @@ def drawCircles(points, size, scale, path=None):
 def drawAddMark(pt, scale, path=None):
     if path is None:
         path = NSBezierPath.bezierPath()
-    d = 16 * scale
-    h = d / 2.0
-    o = 3 * scale
+    h = 8 * scale
     x, y = pt
-    path.moveToPoint_((x - h + o, y))
-    path.lineToPoint_((x + h - o, y))
-    path.moveToPoint_((x, y - h + o))
-    path.lineToPoint_((x, y + h - o))
+    path.moveToPoint_((x - h , y))
+    path.lineToPoint_((x + h, y))
+    path.moveToPoint_((x, y - h))
+    path.lineToPoint_((x, y + h))
     return path
 
 def drawDeleteMark(pt, scale, path=None):
     if path is None:
         path = NSBezierPath.bezierPath()
-    h = 6 * scale
+    h = 8 * scale
     x, y = pt
     x1 = x - h
     x2 = x + h
