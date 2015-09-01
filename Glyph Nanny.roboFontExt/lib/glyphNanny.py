@@ -1496,23 +1496,10 @@ def drawSegmentsNearVericalMetrics(verticalMetrics, scale, glyph):
     color = defaults.colorReview
     path = NSBezierPath.bezierPath()
     for verticalMetric, points in verticalMetrics.items():
-        xMin = None
-        xMax = None
         for (x, y) in points:
-            path.moveToPoint_((x, y))
-            path.lineToPoint_((x, verticalMetric))
-            if xMin is None:
-                xMin = x
-            elif xMin > x:
-                xMin = x
-            if xMax is None:
-                xMax = x
-            elif xMax < x:
-                xMax = x
-        path.moveToPoint_((xMin, verticalMetric))
-        path.lineToPoint_((xMax, verticalMetric))
+            drawLine((x, y), (x, verticalMetric), scale=scale, path=path, arrowEnd=True)
     color.set()
-    path.setLineWidth_(4 * scale)
+    path.setLineWidth_(generalLineWidth * scale)
     path.stroke()
 
 registerTest(
