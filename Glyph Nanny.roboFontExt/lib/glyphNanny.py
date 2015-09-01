@@ -1838,8 +1838,8 @@ def _getUnevenHandleShape(pt0, pt1, pt2, pt3, intersection, start, end, off):
     return curves + [off, start]
 
 def drawUnevenHandles(contours, scale, glyph):
-    strokeColor = defaults.colorReview
-    fillColor = modifyColorAlpha(strokeColor, 0.15)
+    textColor = defaults.colorReview
+    fillColor = modifyColorAlpha(textColor, 0.15)
     for index, groups in contours.items():
         for off1, off2, shape1, shape2 in groups:
             fillColor.set()
@@ -1852,15 +1852,9 @@ def drawUnevenHandles(contours, scale, glyph):
                 path.lineToPoint_(shape[-2])
                 path.lineToPoint_(shape[-1])
             path.fill()
-            strokeColor.set()
-            path = NSBezierPath.bezierPath()
-            path.moveToPoint_(off1)
-            path.lineToPoint_(off2)
-            path.setLineWidth_(scale)
-            path.stroke()
             if defaults.showTitles:
                 mid = calcMid(off1, off2)
-                drawString(mid, "Uneven Handles", 10, scale, strokeColor, backgroundColor=NSColor.whiteColor())
+                drawString(mid, "Uneven Handles", 10, scale, textColor, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="unevenHandles",
