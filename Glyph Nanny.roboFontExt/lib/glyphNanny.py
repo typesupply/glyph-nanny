@@ -280,12 +280,14 @@ class GlyphNannyTestFontsWindow(BaseWindowController):
 
     def __init__(self):
         self.testStateControlToIdentifier = {}
-        self.w = vanilla.Window((264, 315), "Glyph Nanny")
+        self.w = vanilla.Window((264, 350), "Glyph Nanny")
         # test states
         _buildGlyphTestTabs(self, 15)
+        # global options
+        self.w.ignoreOverlapCheckBox = vanilla.CheckBox((15, 245, -15, 22), "Ignore Outline Overlaps")
         # test buttons
-        self.w.testCurrentButton = vanilla.Button((15, 250, -15, 20), "Test Current Font", callback=self.testCurrentButtonCallback)
-        self.w.testAllButton = vanilla.Button((15, 280, -15, 20), "Test All Open Fonts", callback=self.testAllButtonCallback)
+        self.w.testCurrentButton = vanilla.Button((15, 285, -15, 20), "Test Current Font", callback=self.testCurrentButtonCallback)
+        self.w.testAllButton = vanilla.Button((15, 315, -15, 20), "Test All Open Fonts", callback=self.testAllButtonCallback)
 
         self.w.open()
 
@@ -308,7 +310,8 @@ class GlyphNannyTestFontsWindow(BaseWindowController):
             dialogs.message("There is no font to test.", "Open a font and try again.")
             return
         testStates = self.getTestStates()
-        results = getFontReport(font, testStates, format=True)
+        ignoreOverlap = self.w.ignoreOverlapCheckBox.get()
+        results = getFontReport(font, testStates, ignoreOverlap=ignoreOverlap, format=True)
         print results
 
     def testAllButtonCallback(self, sender):
@@ -317,8 +320,9 @@ class GlyphNannyTestFontsWindow(BaseWindowController):
             dialogs.message("There are no fonts to test.", "Open a font and try again.")
             return
         testStates = self.getTestStates()
+        ignoreOverlap = self.w.ignoreOverlapCheckBox.get()
         for font in fonts:
-            results = getFontReport(font, testStates, format=True)
+            results = getFontReport(font, testStates, ignoreOverlap=ignoreOverlap, format=True)
             print results
             print
 
@@ -379,7 +383,7 @@ overlappingPoints
 
 # Font
 
-def getFontReport(font, testStates, format=False):
+def getFontReport(font, testStates, ignoreOverlap=False, format=False):
     """
     Get a report about all glyphs in the font.
 
@@ -387,9 +391,13 @@ def getFontReport(font, testStates, format=False):
     and a boolean indicating if they should be
     executed or not.
     """
+    if ignoreOverlap:
+        font = font.copy()
     results = {}
     for name in font.glyphOrder:
         glyph = font[name]
+        if ignoreOverlap:
+            glyph.removeOverlap()
         report = getGlyphReport(font, glyph, testStates)
         results[name] = report
     if format:
