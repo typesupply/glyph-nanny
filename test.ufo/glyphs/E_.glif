@@ -28,12 +28,17 @@
     </contour>
     <contour>
       <point x="692" y="133" type="line"/>
-      <point x="531" y="133" type="line"/>
-      <point x="531" y="0" type="line"/>
-      <point x="691" y="0" type="line"/>
+      <point x="692" y="153"/>
+      <point x="652" y="183"/>
+      <point x="612" y="183" type="curve"/>
+      <point x="572" y="183"/>
+      <point x="532" y="163"/>
+      <point x="532" y="133" type="curve"/>
+      <point x="532" y="0" type="line"/>
+      <point x="691.0" y="0.0" type="line"/>
     </contour>
     <contour>
-      <point x="552.0" y="133.0" type="line"/>
+      <point x="552" y="133" type="line"/>
       <point x="331.0" y="133.0" type="line"/>
       <point x="331" y="5" type="line"/>
       <point x="552.0" y="5.0" type="line"/>

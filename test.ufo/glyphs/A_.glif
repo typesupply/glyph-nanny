@@ -2,6 +2,9 @@
 <glyph name="A" format="1">
   <advance width="901"/>
   <unicode hex="0041"/>
+  <note>
+    This test case is for evaluating uneven handles.
+  </note>
   <outline>
     <contour>
       <point x="74" y="234" type="line"/>

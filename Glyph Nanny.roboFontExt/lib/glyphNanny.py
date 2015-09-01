@@ -1424,21 +1424,13 @@ def drawStraightLines(contours, scale, glyph):
     color = defaults.colorReview
     color.set()
     for contourIndex, segments in contours.items():
-        for segment in segments:
-            xs = []
-            ys = []
-            for (x, y) in segment:
-                xs.append(x)
-                ys.append(y)
-            xMin = min(xs)
-            xMax = max(xs)
-            yMin = min(ys)
-            yMax = max(ys)
-            w = xMax - xMin
-            h = yMax - yMin
-            r = ((xMin, yMin), (w, h))
-            r = NSInsetRect(r, -10 * scale, -10 * scale)
-            NSFrameRectWithWidthUsingOperation(r, generalLineWidth * scale, NSCompositeSourceOver)
+        for pt1, pt2 in segments:
+            path = drawLine(pt1, pt2, scale=scale)
+            path.setLineWidth_(highlightLineWidth * scale)
+            path.stroke()
+            if defaults.showTitles:
+                mid = calcMid(pt1, pt2)
+                drawString(mid, "Straighten Line", scale, color, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="straightLines",
