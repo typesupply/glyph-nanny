@@ -1430,7 +1430,7 @@ def drawStraightLines(contours, scale, glyph):
             path.stroke()
             if defaults.showTitles:
                 mid = calcMid(pt1, pt2)
-                drawString(mid, "Straighten Line", scale, color, backgroundColor=NSColor.whiteColor())
+                drawString(mid, "Angled Line", scale, color, backgroundColor=NSColor.whiteColor())
 
 registerTest(
     identifier="straightLines",
