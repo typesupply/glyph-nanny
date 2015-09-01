@@ -16,7 +16,12 @@ Also located under Extensions > Glyph Nanny in the application menu is an option
 - Test for stem width inconsistency. This uses the Stem Snap values defined in the PostScript hinting settings to determine the desired stem widths.
 - Removed the "unusually high number of contours" test. It was very slow.
 - Test for slightly asymmetric adjacent curves.
-
+- Improved report display.
+- When testing a full font, overlapping data can now be ignored.
+- The crossed handle test is now more lenient when the curve is very small.
+- The text in the displayed report can be turned off.
+- Improved speed. (Results may vary.)
+- Small bug fixes.
 
 ### 0.2
 
