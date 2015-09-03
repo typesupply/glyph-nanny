@@ -10,19 +10,20 @@ Also located under Extensions > Glyph Nanny in the application menu is an option
 
 ## Versions
 
-### 0.3 (not yet released)
+### 0.3
 
-- Test for unnamed anchors.
-- Test for stem width inconsistency. This uses the Stem Snap values defined in the PostScript hinting settings to determine the desired stem widths.
-- Removed the "unusually high number of contours" test. It was very slow.
-- Test for slightly asymmetric adjacent curves.
-- Improved report display.
+- The font report is now formatted HTML, with marked up glyph images, instead of a text dump.
+- Removed the "unusually high number of contours" test. It took an unusually high number of seconds to execute.
+- Added a new test that looks for slightly asymmetric, adjacent curves.
+- Added a new test that looks for slight stem width inconsistencies. This uses the Stem Snap values defined in the PostScript hinting settings to determine the desired stem widths.
+- The vertical metrics alignment test now incorporates blue zones in the evaluation ranges.
+- Unnamed anchors are now caught by the stray point test.
 - When testing a full font, overlapping data can now be ignored.
-- The crossed handle test is now more lenient when the curve is very small.
-- The text in the displayed report can be turned off.
+- The crossed handle test is now more lenient when a curve is very small.
+- The text in the displayed report can now be turned off.
 - Improved speed. (Results may vary.)
+- Improved report aesthetics. (Opinions may vary.)
 - Small bug fixes.
-- The font report is now formatted HTML with images instead of a text dump.
 
 ### 0.2
 
