@@ -985,7 +985,7 @@ class _StemWrapper(object):
     def __init__(self, value, threshold):
         self.value = value
         self.threshold = threshold
-    
+
     def __cmp__(self, other):
         d = abs(self.value - other)
         if d <= self.threshold:
@@ -2299,7 +2299,7 @@ def modifyColorAlpha(color, a):
     b = color.blueComponent()
     return NSColor.colorWithCalibratedRed_green_blue_alpha_(r, g, b, a)
 
-def drawLine(pt1, pt2, scale, arrowStart=False, arrowEnd=False, path=None):
+def drawLine(pt1, pt2, scale, arrowStart=False, arrowEnd=False, arrowLenght=16, arrowAngle=36, path=None):
     if path is None:
         path = NSBezierPath.bezierPath()
     path.moveToPoint_(pt1)
@@ -2308,28 +2308,28 @@ def drawLine(pt1, pt2, scale, arrowStart=False, arrowEnd=False, path=None):
         x1, y1 = pt1
         x2, y2 = pt2
         angle = math.atan2(y2-y1, x2-x1)
-        headLength = 16 * scale
-        headAngle = 5
+        headLength = arrowLenght * scale
+        headAngle = math.radians(arrowAngle)
         if arrowStart:
             h1 = (
-                x1 + headLength * math.cos(angle - math.pi / headAngle),
-                y1 + headLength * math.sin(angle - math.pi / headAngle)
+                x1 + headLength * math.cos(angle - headAngle),
+                y1 + headLength * math.sin(angle - headAngle)
             )
             h2 = (
-                x1 + headLength * math.cos(angle + math.pi / headAngle),
-                y1 + headLength * math.sin(angle + math.pi / headAngle)
+                x1 + headLength * math.cos(angle + headAngle),
+                y1 + headLength * math.sin(angle + headAngle)
             )
             path.moveToPoint_(h1)
             path.lineToPoint_(pt1)
             path.lineToPoint_(h2)
         if arrowEnd:
             h1 = (
-                x2 - headLength * math.cos(angle - math.pi / headAngle),
-                y2 - headLength * math.sin(angle - math.pi / headAngle)
+                x2 - headLength * math.cos(angle - headAngle),
+                y2 - headLength * math.sin(angle - headAngle)
             )
             h2 = (
-                x2 - headLength * math.cos(angle + math.pi / headAngle),
-                y2 - headLength * math.sin(angle + math.pi / headAngle)
+                x2 - headLength * math.cos(angle + headAngle),
+                y2 - headLength * math.sin(angle + headAngle)
             )
             path.moveToPoint_(h1)
             path.lineToPoint_(pt2)
