@@ -1,6 +1,7 @@
 import os
 import re
 import math
+import base64
 from fontTools.misc import bezierTools as ftBezierTools
 from fontTools.misc import arrayTools as ftArrayTools
 from fontTools.agl import AGL2UV
@@ -13,7 +14,7 @@ from vanilla import dialogs
 from defconAppKit.windows.baseWindow import BaseWindowController
 from mojo.roboFont import CurrentFont, AllFonts
 from mojo.roboFont import version as roboFontVersion
-from mojo.UI import UpdateCurrentGlyphView
+from mojo.UI import UpdateCurrentGlyphView, HTMLView
 from mojo.events import addObserver, removeObserver
 from mojo.extensions import getExtensionDefault, setExtensionDefault, getExtensionDefaultColor, setExtensionDefaultColor
 from lib.tools import bezierTools as rfBezierTools
@@ -309,22 +310,62 @@ class GlyphNannyTestFontsWindow(BaseWindowController):
         if font is None:
             dialogs.message("There is no font to test.", "Open a font and try again.")
             return
-        testStates = self.getTestStates()
-        ignoreOverlap = self.w.ignoreOverlapCheckBox.get()
-        results = getFontReport(font, testStates, ignoreOverlap=ignoreOverlap, format=True)
-        print results
+        self._processFont(font)
 
     def testAllButtonCallback(self, sender):
         fonts = AllFonts()
         if not fonts:
             dialogs.message("There are no fonts to test.", "Open a font and try again.")
             return
+        for font in fonts:
+            self._processFont(font)
+
+    def _processFont(self, font):
         testStates = self.getTestStates()
         ignoreOverlap = self.w.ignoreOverlapCheckBox.get()
-        for font in fonts:
-            results = getFontReport(font, testStates, ignoreOverlap=ignoreOverlap, format=True)
-            print results
-            print
+        progressBar = self.startProgress(tickCount=len(font))
+        try:
+            html = getFontReport(font, testStates, ignoreOverlap=ignoreOverlap, progressBar=progressBar)
+        finally:
+            progressBar.close()
+        FontReportWindow(font, html)
+
+
+class FontReportWindow(BaseWindowController):
+
+    def __init__(self, font, html):
+        self.font = font
+        self.html = html
+        title = "Glyph Nanny Report: Unsaved Font"
+        if font.path is not None:
+            title = u"Glyph Nanny Report: %s" % os.path.basename(font.path)
+        self.w = vanilla.Window((600, 400), title=title, minSize=(200, 200))
+        self.w.reportView = HTMLView((0, 0, -0, -50))
+        self.w.reportView.setHTML(html)
+        self.w.line = vanilla.HorizontalLine((0, -50, 0, 1))
+        self.w.saveButton = vanilla.Button((-115, -35, 100, 20), "Save Report", callback=self.saveButtonCallback)
+        self.w.open()
+
+    def saveButtonCallback(self, sender):
+        fileName = "Untitled Font"
+        directory = None
+        if self.font.path is not None:
+            directory, fileName = os.path.split(self.font.path)
+            fileName = os.path.splitext(fileName)[0]
+        fileName += " Glyph Nanny Report"
+        self.showPutFile(
+            fileTypes=["html"],
+            callback=self._writeHTML,
+            fileName=fileName,
+            directory=directory
+        )
+
+    def _writeHTML(self, path):
+        if not path:
+            return
+        f = open(path, "wb")
+        f.write(self.html)
+        f.close()
 
 # ------
 # Orders
@@ -383,7 +424,7 @@ overlappingPoints
 
 # Font
 
-def getFontReport(font, testStates, ignoreOverlap=False, format=False):
+def getFontReport(font, testStates, ignoreOverlap=False, progressBar=None):
     """
     Get a report about all glyphs in the font.
 
@@ -393,36 +434,197 @@ def getFontReport(font, testStates, ignoreOverlap=False, format=False):
     """
     if ignoreOverlap:
         font = font.copy()
-    results = {}
+    html = fontReportTemplate
+    glyphReports = []
+    if roboFontVersion > "1.5.1":
+        testStates = dictToTuple(testStates)
     for name in font.glyphOrder:
+        if progressBar is not None:
+            progressBar.update(u"Analyzing %s..." % name)
         glyph = font[name]
         if ignoreOverlap:
             glyph.removeOverlap()
-        report = getGlyphReport(font, glyph, testStates)
-        results[name] = report
-    if format:
-        path = font.path
-        if path is None:
-            path = "Unsaved Font"
+        if roboFontVersion > "1.5.1":
+            report = glyph.getRepresentation("com.typesupply.GlyphNanny.Report", testStates=testStates)
         else:
-            path = os.path.basename(path)
-        path = ("-" * len(path)) + "\n" + path + "\n" + ("-" * len(path))
-        all = [path]
-        for name in font.glyphOrder:
-            report = results[name]
-            l = []
-            for key in reportOrder:
-                data = testRegistry[key]
-                description = data["description"]
-                value = report.get(key)
-                if value:
-                    l.append(description)
-            if l:
-                l.insert(0, "-" * len(name))
-                l.insert(0, name)
-                all.append("\n".join(l))
-        results = "\n\n".join(all)
-    return results
+            report = getGlyphReport(font, glyph, testStates)
+        l = []
+        for key in reportOrder:
+            data = testRegistry[key]
+            description = data["description"]
+            value = report.get(key)
+            if value:
+                l.append("<li>%s</li>" % description)
+        if l:
+            png = _makeFontReportPNG(glyph, report)
+            r = glyphReportTemplate
+            r = r.replace("__glyphName__", name)
+            r = r.replace("__glyphReportItems__", "".join(l))
+            r = r.replace("__glyphPNG__", png)
+            glyphReports.append(r)
+    html = html.replace("__glyphReports__", "".join(glyphReports))
+    return html
+
+fontReportTemplate = """
+<html>
+    <head>
+        <style>
+            body {
+                font-family: Helvetica;
+                line-height: 1.4em;
+                font-size: 15px;
+                padding: 10px;
+                background-color: white;
+            }
+
+            .glyphReport {
+              margin-bottom: 40px;
+            }
+
+            .glyphReport ul {
+              margin: 0;
+                width: 380px;
+                padding-left: 1em;
+                float: left;
+            }
+
+            .glyphReport li {
+                padding-left: 0;
+            }
+
+            .glyphReport h1 {
+                font-size: 20px;
+                border-bottom: 1px solid black;
+                padding: 0 0 0.5em 0;
+                margin: 0 0 1em 0;
+            }
+
+            .glyphImage {
+                position: relative;
+                left: 430px;
+                height: 700px;
+                width: 800px;
+                background-size: Auto 100%;
+                background-repeat: no-repeat;
+            }
+        </style>
+    </head>
+    <body>
+        __glyphReports__
+    </body>
+</html>
+"""
+
+glyphReportTemplate = """
+        <div class="glyphReport">
+          <h1>__glyphName__</h1>
+            <ul>
+                __glyphReportItems__
+            </ul>
+            <div class="glyphImage" style="background-image: url(data:image/png;base64,__glyphPNG__);"></div>
+        </div>
+"""
+
+def _makeFontReportPNG(glyph, report):
+    font = glyph.getParent()
+    upm = font.info.unitsPerEm
+    xBuffer = upm * 0.3
+    yBuffer = xBuffer * 0.5
+    verticalMetrics = set([
+        font.info.descender,
+        0,
+        font.info.xHeight,
+        font.info.capHeight,
+        font.info.ascender
+    ])
+    bottom = min(verticalMetrics)
+    top = max(verticalMetrics)
+    left = 0
+    right = glyph.width
+    width = left + right + (xBuffer * 2)
+    height = top - bottom + (yBuffer * 2)
+    # start the image
+    image = NSImage.alloc().initWithSize_((width, height))
+    image.lockFocus()
+    # paint the background
+    NSColor.whiteColor().set()
+    NSRectFill(((0, 0), image.size()))
+    # apply the buffer
+    transform = NSAffineTransform.transform()
+    transform.translateXBy_yBy_(xBuffer, yBuffer)
+    transform.translateXBy_yBy_(0, -bottom)
+    transform.concat()
+    scale = 2.0
+    # draw the metrics
+    path = NSBezierPath.bezierPath()
+    for y in verticalMetrics:
+        drawLine((-xBuffer, y), (width, y), scale=scale, path=path)
+    path.moveToPoint_((0, -yBuffer+bottom))
+    path.lineToPoint_((0, height))
+    path.moveToPoint_((right, -yBuffer+bottom))
+    path.lineToPoint_((right, height))
+    NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 0, 0, 0.1).set()
+    path.setLineWidth_(1 * scale)
+    path.stroke()
+    # draw the report
+    for key in drawingOrder:
+        data = report.get(key)
+        if data:
+            drawingFunction = testRegistry[key]["drawingFunction"]
+            if drawingFunction is not None:
+                drawingFunction(data, scale, glyph)
+    # draw the glyph
+    pen = CocoaPen(font)
+    glyph.draw(pen)
+    path = pen.path
+    NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 0, 0, 0.1).set()
+    path.fill()
+    NSColor.blackColor().set()
+    path.setLineWidth_(1 * scale)
+    path.stroke()
+    path = NSBezierPath.bezierPath()
+    handlePath = NSBezierPath.bezierPath()
+    for contour in glyph:
+        prev = contour.points[-1]
+        for point in contour.points:
+            t = point.type
+            x = point.x
+            y = point.y
+            if t in ("move", "line") or (t == "curve" and not point.smooth):
+                s = 7 * scale
+                m = path.appendBezierPathWithRect_
+            elif t in ("curve", "qCurve"):
+                s = 8 * scale
+                m = path.appendBezierPathWithOvalInRect_
+            else:
+                s = 5 * scale
+                m = path.appendBezierPathWithOvalInRect_
+            h = s * 0.5
+            r = ((x - h, y - h), (s, s))
+            m(r)
+            if t == "offCurve" and prev.type in ("move", "line", "curve"):
+                handlePath.moveToPoint_((prev.x, prev.y))
+                handlePath.lineToPoint_((x, y))
+            elif t in ("move", "line", "curve") and prev.type == "offCurve":
+                handlePath.moveToPoint_((prev.x, prev.y))
+                handlePath.lineToPoint_((x, y))
+            prev = point
+    NSColor.colorWithCalibratedRed_green_blue_alpha_(0, 0, 0, 0.2).set()
+    handlePath.setLineWidth_(1 * scale)
+    handlePath.stroke()
+    NSColor.whiteColor().set()
+    path.fill()
+    path.setLineWidth_(1 * scale)
+    NSColor.blackColor().set()
+    path.stroke()
+    image.unlockFocus()
+    # convert to base64
+    data = image.TIFFRepresentation()
+    rep = NSBitmapImageRep.imageRepWithData_(data)
+    data = rep.representationUsingType_properties_(NSPNGFileType, None)
+    data = base64.b64encode(data)
+    return data
+
 
 # Glyph
 
@@ -866,7 +1068,7 @@ def _drawSideBearingsReport(data, scale, textPosition, color):
         path.setLineWidth_(generalLineWidth * scale)
         path.stroke()
         if defaults.showTitles:
-            x = min((0, left)) - (5 * scale)
+            x = max((width, right)) - (5 * scale)
             drawString((x, y), rightMessage, scale, color, hAlignment="left")
 
 registerTest(
@@ -1279,14 +1481,14 @@ def drawSlightlyAsymmetricCurves(data, scale, glyph):
     color.set()
     arrowPath.setLineWidth_(generalLineWidth * scale)
     arrowPath.stroke()
-    curvePath.setLineWidth_(generalLineWidth * scale)
+    curvePath.setLineWidth_(highlightLineWidth * scale)
     curvePath.stroke()
 
 registerTest(
     identifier="curveSymmetry",
     level="contour",
     title="Curve Symmetry",
-    description="One or more curve pairs are slightly assymetrical.",
+    description="One or more curve pairs are slightly asymmetrical.",
     testFunction=testForSlightlyAssymmetricCurves,
     drawingFunction=drawSlightlyAsymmetricCurves
 )
