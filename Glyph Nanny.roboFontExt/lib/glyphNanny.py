@@ -1659,53 +1659,95 @@ registerTest(
 
 def testForSegmentsNearVerticalMetrics(glyph):
     """
-    Points shouldn't be just off a vertical metric.
+    Points shouldn't be just off a vertical metric or blue zone.
     """
+    threshold = 5
+    # gather the blues into top and bottom groups
     font = glyph.getParent()
-    verticalMetrics = {
-        0 : set()
-    }
-    for attr in "descender xHeight capHeight ascender".split(" "):
-        value = getattr(font.info, attr)
-        verticalMetrics[value] = set()
+    topZones = _makeZonePairs(font.info.postscriptBlueValues)
+    bottomZones = _makeZonePairs(font.info.postscriptOtherBlues)
+    if topZones:
+        t = topZones[0]
+        if t[0] <= 0 and t[1] == 0:
+            bottomZones.append(topZones.pop(0))
+    # insert vertical metrics into the zones
+    topMetrics = [getattr(font.info, attr) for attr in "xHeight capHeight ascender".split(" ") if getattr(font.info, attr) is not None]
+    bottomMetrics = [getattr(font.info, attr) for attr in "descender".split(" ") if getattr(font.info, attr) is not None] + [0]
+    for value in topMetrics:
+        found = False
+        for b, t in topZones:
+            if b <= value and t >= value:
+                found = True
+                break
+        if not found:
+            topZones.append((value, value))
+    for value in bottomMetrics:
+        found = False
+        for b, t in bottomZones:
+            if b <= value and t >= value:
+                found = True
+                break
+        if not found:
+            bottomZones.append((value, value))
+    # find points
+    found = {}
     for contour in glyph:
-        sequence = None
-        # test the last segment to start the sequence
-        pt = _unwrapPoint(contour[-1].onCurve)
-        near, currentMetric = _testPointNearVerticalMetrics(pt, verticalMetrics)
-        if near:
-            sequence = set()
-        # test them all
-        for segment in contour:
-            pt = _unwrapPoint(segment.onCurve)
-            near, metric = _testPointNearVerticalMetrics(pt, verticalMetrics)
-            # hit on the same metric as the previous point
-            if near and sequence is not None and metric == currentMetric:
-                sequence.add(pt)
-            else:
-                # existing sequence, note it if needed, clear it
-                if sequence:
-                    if len(sequence) > 1:
-                        verticalMetrics[currentMetric] |= sequence
-                sequence = None
-                currentMetric = None
-                # hit, make a new sequence
-                if near:
-                    sequence = set()
-                    currentMetric = metric
-                    sequence.add(pt)
-    for verticalMetric, points in verticalMetrics.items():
-        if not points:
-            del verticalMetrics[verticalMetric]
-    return verticalMetrics
+        if len(contour) < 3:
+            continue
+        for segmentIndex, segment in enumerate(contour):
+            prev = segmentIndex - 1
+            next = segmentIndex + 1
+            if next == len(contour):
+                next = 0
+            prevSegment = contour[prev]
+            nextSegment = contour[next]
+            pt = (segment.onCurve.x, segment.onCurve.y)
+            prevPt = (prevSegment.onCurve.x, prevSegment.onCurve.y)
+            nextPt = (nextSegment.onCurve.x, nextSegment.onCurve.y)
+            pY = prevPt[1]
+            x, y = pt
+            nY = nextPt[1]
+            # top point
+            if y >= pY and y >= nY:
+                for b, t in topZones:
+                    test = None
+                    # point is above zone
+                    if y > t and abs(t - y) <= threshold:
+                        test = t
+                    # point is below zone
+                    elif y < b and abs(b - y) <= threshold:
+                        test = b
+                    if test is not None:
+                        if glyph.pointInside((x, y - 1)):
+                            if test not in found:
+                                found[test] = set()
+                            found[test].add((x, y))
+            # bottom point
+            if y <= pY and y <= nY:
+                for b, t in bottomZones:
+                    test = None
+                    # point is above zone
+                    if y > t and abs(t - y) <= threshold:
+                        test = t
+                    # point is below zone
+                    elif y < b and abs(b - y) <= threshold:
+                        test = b
+                    if test is not None:
+                        if glyph.pointInside((x, y + 1)):
+                            if test not in found:
+                                found[test] = set()
+                            found[test].add((x, y))
+    return found
 
-def _testPointNearVerticalMetrics(pt, verticalMetrics):
-    y = pt[1]
-    for v in verticalMetrics:
-        d = abs(v - y)
-        if d != 0 and d <= 5:
-            return True, v
-    return False, None
+def _makeZonePairs(blues):
+    blues = list(blues)
+    pairs = []
+    if not len(blues) % 2:
+        while blues:
+            bottom = blues.pop(0)
+            top = blues.pop(0) 
+            pairs.append((bottom, top))
+    return pairs
 
 def drawSegmentsNearVericalMetrics(verticalMetrics, scale, glyph):
     color = defaults.colorReview
