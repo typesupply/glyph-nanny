@@ -19,7 +19,7 @@ from mojo.events import addObserver, removeObserver
 from mojo.extensions import getExtensionDefault, setExtensionDefault, getExtensionDefaultColor, setExtensionDefaultColor
 from lib.tools import bezierTools as rfBezierTools
 
-DEBUG = True
+DEBUG = False
 
 # --------
 # Defaults
