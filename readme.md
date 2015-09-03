@@ -7,3 +7,27 @@ This tool provides live feedback about the technical quality of a glyph. The goa
 If you want to turn the display on or off, or edit the list of tests performed, look under Extensions > Glyph Nanny in the application menu.
 
 Also located under Extensions > Glyph Nanny in the application menu is an option for testing an entire font.
+
+## Versions
+
+### 0.3 (not yet released)
+
+- Test for unnamed anchors.
+- Test for stem width inconsistency. This uses the Stem Snap values defined in the PostScript hinting settings to determine the desired stem widths.
+- Removed the "unusually high number of contours" test. It was very slow.
+- Test for slightly asymmetric adjacent curves.
+- Improved report display.
+- When testing a full font, overlapping data can now be ignored.
+- The crossed handle test is now more lenient when the curve is very small.
+- The text in the displayed report can be turned off.
+- Improved speed. (Results may vary.)
+- Small bug fixes.
+- The font report is now formatted HTML with images instead of a text dump.
+
+### 0.2
+
+Minor bug fixes.
+
+### 0.1
+
+Initial version.

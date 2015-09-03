@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<glyph name="D" format="1">
+  <advance width="217.25"/>
+  <unicode hex="0044"/>
+  <note>
+    This test case is for testing crossed bcps.
+  </note>
+  <outline>
+    <contour>
+      <point x="102" y="28" type="curve"/>
+      <point x="116" y="28" type="line"/>
+      <point x="117" y="28"/>
+      <point x="117" y="29"/>
+      <point x="117" y="30" type="curve"/>
+      <point x="100" y="30" type="line"/>
+      <point x="100" y="29" type="line"/>
+      <point x="100" y="28"/>
+      <point x="101" y="28"/>
+    </contour>
+    <contour>
+      <point x="102" y="24" type="curve"/>
+      <point x="116" y="24" type="line"/>
+      <point x="117" y="24"/>
+      <point x="117" y="24"/>
+      <point x="117" y="26" type="curve"/>
+      <point x="100" y="26" type="line"/>
+      <point x="100" y="25" type="line"/>
+      <point x="100" y="24"/>
+      <point x="100" y="24"/>
+    </contour>
+    <contour>
+      <point x="102" y="20" type="curve"/>
+      <point x="116" y="20" type="line"/>
+      <point x="118" y="20"/>
+      <point x="117" y="21"/>
+      <point x="117" y="22" type="curve"/>
+      <point x="100" y="22" type="line"/>
+      <point x="100" y="21" type="line"/>
+      <point x="100" y="19"/>
+      <point x="101" y="20"/>
+    </contour>
+    <contour>
+      <point x="102" y="16" type="curve"/>
+      <point x="116" y="16" type="line"/>
+      <point x="117" y="16"/>
+      <point x="117" y="15"/>
+      <point x="117" y="18" type="curve"/>
+      <point x="100" y="18" type="line"/>
+      <point x="100" y="17" type="line"/>
+      <point x="100" y="16"/>
+      <point x="99" y="16"/>
+    </contour>
+    <contour>
+      <point x="102" y="12" type="curve"/>
+      <point x="116" y="12" type="line"/>
+      <point x="118" y="12"/>
+      <point x="117" y="11"/>
+      <point x="117" y="14" type="curve"/>
+      <point x="100" y="14" type="line"/>
+      <point x="100" y="13" type="line"/>
+      <point x="100" y="11"/>
+      <point x="99" y="12"/>
+    </contour>
+  </outline>
+</glyph>

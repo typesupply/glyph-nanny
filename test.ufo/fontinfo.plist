@@ -22,9 +22,12 @@
 	</array>
 	<key>postscriptStemSnapH</key>
 	<array>
+		<integer>40</integer>
 	</array>
 	<key>postscriptStemSnapV</key>
 	<array>
+		<integer>40</integer>
+		<integer>250</integer>
 	</array>
 	<key>unitsPerEm</key>
 	<integer>1000</integer>
