@@ -325,17 +325,18 @@ class GlyphNannyTestFontsWindow(BaseWindowController):
         ignoreOverlap = self.w.ignoreOverlapCheckBox.get()
         progressBar = self.startProgress(tickCount=len(font))
         try:
-            html = getFontReport(font, testStates, ignoreOverlap=ignoreOverlap, progressBar=progressBar)
+            html, glyphsWithIssues = getFontReport(font, testStates, ignoreOverlap=ignoreOverlap, progressBar=progressBar)
         finally:
             progressBar.close()
-        FontReportWindow(font, html)
+        FontReportWindow(font, html, glyphsWithIssues)
 
 
 class FontReportWindow(BaseWindowController):
 
-    def __init__(self, font, html):
+    def __init__(self, font, html, glyphsWithIssues):
         self.font = font
         self.html = html
+        self.glyphsWithIssues = glyphsWithIssues
         title = "Glyph Nanny Report: Unsaved Font"
         if font.path is not None:
             title = u"Glyph Nanny Report: %s" % os.path.basename(font.path)
@@ -343,7 +344,8 @@ class FontReportWindow(BaseWindowController):
         self.w.reportView = HTMLView((0, 0, -0, -50))
         self.w.reportView.setHTML(html)
         self.w.line = vanilla.HorizontalLine((0, -50, 0, 1))
-        self.w.saveButton = vanilla.Button((-115, -35, 100, 20), "Save Report", callback=self.saveButtonCallback)
+        self.w.saveButton = vanilla.Button((15, -35, 100, 20), "Save Report", callback=self.saveButtonCallback)
+        self.w.markButton = vanilla.Button((-115, -35, 100, 20), "Mark Glyphs", callback=self.markButtonCallback)
         self.w.open()
 
     def saveButtonCallback(self, sender):
@@ -366,6 +368,14 @@ class FontReportWindow(BaseWindowController):
         f = open(path, "wb")
         f.write(self.html)
         f.close()
+
+    def markButtonCallback(self, sender):
+        for name in self.font.keys():
+            if name in self.glyphsWithIssues:
+                color = (1, 0, 0, 0.5)
+            else:
+                color = None
+            self.font[name].mark = color
 
 # ------
 # Orders
@@ -436,6 +446,7 @@ def getFontReport(font, testStates, ignoreOverlap=False, progressBar=None):
         font = font.copy()
     html = fontReportTemplate
     glyphReports = []
+    glyphsWithIssues = []
     if roboFontVersion > "1.5.1":
         testStates = dictToTuple(testStates)
     for name in font.glyphOrder:
@@ -462,8 +473,9 @@ def getFontReport(font, testStates, ignoreOverlap=False, progressBar=None):
             r = r.replace("__glyphReportItems__", "".join(l))
             r = r.replace("__glyphPNG__", png)
             glyphReports.append(r)
+            glyphsWithIssues.append(name)
     html = html.replace("__glyphReports__", "".join(glyphReports))
-    return html
+    return html, glyphsWithIssues
 
 fontReportTemplate = """
 <html>
