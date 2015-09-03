@@ -22,6 +22,7 @@ Also located under Extensions > Glyph Nanny in the application menu is an option
 - The text in the displayed report can be turned off.
 - Improved speed. (Results may vary.)
 - Small bug fixes.
+- The font report is now formatted HTML with images instead of a text dump.
 
 ### 0.2
 
