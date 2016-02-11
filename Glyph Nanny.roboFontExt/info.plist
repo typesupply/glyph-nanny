@@ -33,9 +33,9 @@
 		</dict>
 	</array>
 	<key>developer</key>
-	<string>http://tools.typesupply.com</string>
-	<key>developerURL</key>
 	<string>Type Supply LLC</string>
+	<key>developerURL</key>
+	<string>http://tools.typesupply.com</string>
 	<key>html</key>
 	<false/>
 	<key>launchAtStartUp</key>
