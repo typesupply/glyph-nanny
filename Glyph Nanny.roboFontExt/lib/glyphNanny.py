@@ -213,6 +213,7 @@ def _buildGlyphTestTabs(controller, viewTop):
 def toggleObserverVisibility():
     state = not defaults.getValue(defaultKeyObserverVisibility)
     setExtensionDefault(defaultKeyObserverVisibility, state)
+    defaults.reload()
     UpdateCurrentGlyphView()
 
 
