@@ -647,7 +647,7 @@ def _registerFactory():
             addRepresentationFactory("com.typesupply.GlyphNanny.Report", GlyphNannyReportFactoryUFO2)
         else:
             if "com.typesupply.GlyphNanny.Report" not in _xxxHackGlyph._representationFactories:
-                addRepresentationFactory("com.typesupply.GlyphNanny.Report", GlyphNannyReportFactory)
+                addRepresentationFactory("com.typesupply.GlyphNanny.Report", GlyphNannyReportFactoryUFO2)
     else:
         from defcon import registerRepresentationFactory, Glyph
         if DEBUG:
@@ -655,6 +655,7 @@ def _registerFactory():
                 for font in AllFonts():
                     for glyph in font:
                         glyph.naked().destroyAllRepresentations()
+            addRepresentationFactory("com.typesupply.GlyphNanny.Report", GlyphNannyReportFactory)
         else:
             if "com.typesupply.GlyphNanny.Report" not in Glyph.representationFactories:
                 registerRepresentationFactory(Glyph, "com.typesupply.GlyphNanny.Report", GlyphNannyReportFactory)
