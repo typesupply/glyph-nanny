@@ -620,7 +620,7 @@ def tupleToDict(t):
         d[k] = v
     return d
 
-def GlyphNannyReportFactory(glyph, font, testStates=None):
+def GlyphNannyReportFactory(glyph, testStates=None):
     """
     Representation factory for retrieving a report.
     """
@@ -628,6 +628,9 @@ def GlyphNannyReportFactory(glyph, font, testStates=None):
     font = glyph.getParent()
     d = tupleToDict(testStates)
     return getGlyphReport(font, glyph, d)
+
+def GlyphNannyReportFactoryUFO2(glyph, font, testStates=None):
+    return GlyphNannyReportFactory(glyph, testStates)
 
 def _registerFactory():
     # always register if debugging
@@ -641,7 +644,7 @@ def _registerFactory():
                     for glyph in font:
                         glyph.naked().destroyAllRepresentations()
                 removeRepresentationFactory("com.typesupply.GlyphNanny.Report")
-            addRepresentationFactory("com.typesupply.GlyphNanny.Report", GlyphNannyReportFactory)
+            addRepresentationFactory("com.typesupply.GlyphNanny.Report", GlyphNannyReportFactoryUFO2)
         else:
             if "com.typesupply.GlyphNanny.Report" not in _xxxHackGlyph._representationFactories:
                 addRepresentationFactory("com.typesupply.GlyphNanny.Report", GlyphNannyReportFactory)
