@@ -7,7 +7,10 @@ from fontTools.misc import arrayTools as ftArrayTools
 from fontTools.agl import AGL2UV
 from fontTools.pens.cocoaPen import CocoaPen
 from fontTools.pens.transformPen import TransformPen
-from robofab.pens.digestPen import DigestPointPen
+try:
+    from fontPens.digestPointPen import DigestPointPen
+except:
+    from robofab.pens.digestPen import DigestPointPen
 from AppKit import *
 import vanilla
 from vanilla import dialogs
@@ -20,6 +23,8 @@ from mojo.extensions import getExtensionDefault, setExtensionDefault, setExtensi
 from lib.tools import bezierTools as rfBezierTools
 
 from defaultManager import defaults, defaultKeyObserverVisibility, defaultKeyTitleVisibility, defaultKeyTestStates, defaultKeyColorInform, defaultKeyColorReview, defaultKeyColorRemove, defaultKeyColorInsert
+
+
 
 DEBUG = False
 
@@ -627,18 +632,30 @@ def GlyphNannyReportFactory(glyph, font, testStates=None):
 def _registerFactory():
     # always register if debugging
     # otherwise only register if it isn't registered
-    from defcon import addRepresentationFactory, removeRepresentationFactory
-    from defcon.objects import glyph as _xxxHackGlyph
-    if DEBUG:
-        if "com.typesupply.GlyphNanny.Report" in _xxxHackGlyph._representationFactories:
-            for font in AllFonts():
-                for glyph in font:
-                    glyph.naked().destroyAllRepresentations()
-            removeRepresentationFactory("com.typesupply.GlyphNanny.Report")
-        addRepresentationFactory("com.typesupply.GlyphNanny.Report", GlyphNannyReportFactory)
-    else:
-        if "com.typesupply.GlyphNanny.Report" not in _xxxHackGlyph._representationFactories:
+    if roboFontVersion < "2.0":
+        from defcon import addRepresentationFactory, removeRepresentationFactory
+        from defcon.objects import glyph as _xxxHackGlyph
+        if DEBUG:
+            if "com.typesupply.GlyphNanny.Report" in _xxxHackGlyph._representationFactories:
+                for font in AllFonts():
+                    for glyph in font:
+                        glyph.naked().destroyAllRepresentations()
+                removeRepresentationFactory("com.typesupply.GlyphNanny.Report")
             addRepresentationFactory("com.typesupply.GlyphNanny.Report", GlyphNannyReportFactory)
+        else:
+            if "com.typesupply.GlyphNanny.Report" not in _xxxHackGlyph._representationFactories:
+                addRepresentationFactory("com.typesupply.GlyphNanny.Report", GlyphNannyReportFactory)
+    else:
+        from defcon import registerRepresentationFactory, Glyph
+        if DEBUG:
+            if "com.typesupply.GlyphNanny.Report" in Glyph.representationFactories:
+                for font in AllFonts():
+                    for glyph in font:
+                        glyph.naked().destroyAllRepresentations()
+        else:
+            if "com.typesupply.GlyphNanny.Report" not in Glyph.representationFactories:
+                registerRepresentationFactory(Glyph, "com.typesupply.GlyphNanny.Report", GlyphNannyReportFactory)
+
 
 # -------------
 # Test Registry
@@ -2210,8 +2227,10 @@ def _unwrapPoint(pt):
 def _roundPoint(pt):
     return round(pt[0]), round(pt[1])
 
-def _intersectLines((a1, a2), (b1, b2)):
+def _intersectLines(a1a2, b1b2):
     # adapted from: http://www.kevlindev.com/gui/math/intersection/Intersection.js
+    a1, a2 = a1a2
+    b1, b2 = b1b2
     ua_t = (b2[0] - b1[0]) * (a1[1] - b1[1]) - (b2[1] - b1[1]) * (a1[0] - b1[0])
     ub_t = (a2[0] - a1[0]) * (a1[1] - b1[1]) - (a2[1] - a1[1]) * (a1[0] - b1[0])
     u_b  = (b2[1] - b1[1]) * (a2[0] - a1[0]) - (b2[0] - b1[0]) * (a2[1] - a1[1])
