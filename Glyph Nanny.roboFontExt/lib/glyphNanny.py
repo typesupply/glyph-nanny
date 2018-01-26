@@ -333,6 +333,7 @@ class FontReportWindow(BaseWindowController):
 reportOrder = """
 unicodeValue
 componentMetrics
+duplicateComponents
 ligatureMetrics
 metricsSymmetry
 stemWidths
@@ -356,6 +357,7 @@ unsmoothSmooths
 drawingOrder = """
 unicodeValue
 componentMetrics
+duplicateComponents
 ligatureMetrics
 metricsSymmetry
 stemWidths
@@ -1121,8 +1123,8 @@ def _getXMinMaxComponents(components):
         minSide.append((xMin, component))
         maxSide.append((xMax, component))
     o = [
-        min(minSide)[-1],
-        max(maxSide)[-1],
+        min(minSide, key=lambda v: (v[0], v[1].baseGlyph))[-1],
+        max(maxSide, key=lambda v: (v[0], v[1].baseGlyph))[-1],
     ]
     return o
 
@@ -1139,6 +1141,48 @@ registerTest(
     description="The side-bearings don't match the component's metrics.",
     testFunction=testComponentMetrics,
     drawingFunction=drawComponentMetrics
+)
+
+# Duplicate Components
+
+def testDuplicateComponents(glyph):
+    """
+    Components shouldn't be duplicated on each other.
+    """
+    duplicateComponents = []
+    components = set()
+    for index, component in enumerate(glyph.components):
+        key = (component.baseGlyph, component.transformation)
+        if key in components:
+            duplicateComponents.append(index)
+        components.add(key)
+    return duplicateComponents
+
+def drawDuplicateComponents(componentIndexes, scale, glyph):
+    font = glyph.getParent()
+    color = defaults.colorRemove
+    color.set()
+    components = glyph.components
+    for componentIndex in componentIndexes:
+        pen = CocoaPen(font)
+        component = components[componentIndex]
+        component.draw(pen)
+        path = pen.path
+        path.setLineWidth_(highlightLineWidth * scale)
+        path.stroke()
+        if defaults.showTitles:
+            xMin, yMin, xMax, yMax = component.box
+            mid = calcMid((xMin, yMin), (xMax, yMin))
+            x, y = mid
+            drawString((x, y), "Duplicate Component", scale, color, vAlignment="top", vOffset="-y")
+
+registerTest(
+    identifier="duplicateComponents",
+    level="component",
+    title="Duplicate Components",
+    description="One or more components are duplicated.",
+    testFunction=testDuplicateComponents,
+    drawingFunction=drawDuplicateComponents
 )
 
 # Symmetry
