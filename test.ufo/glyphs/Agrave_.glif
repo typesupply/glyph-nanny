@@ -3,7 +3,7 @@
   <advance width="901"/>
   <unicode hex="00C0"/>
   <note>
-    This test case is for doublicated components
+    This test case is for duplicated components
   </note>
   <outline>
     <component base="A"/>
