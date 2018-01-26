@@ -185,7 +185,7 @@ class GlyphNannyPrefsWindow(object):
 
 
 def _buildGlyphTestTabs(controller, viewTop):
-    groupTitles = ["Glyph Tests", "Metrics Tests", "Contour Tests", "Segment Tests", "Point Tests"]
+    groupTitles = ["Glyph Tests", "Metrics Tests", "Contour Tests", "Segment Tests", "Point Tests", "Component Tests"]
     controller.w.testStateBox = vanilla.Box((15, viewTop + 10, -15, 210))
     tabs = controller.w.testStateBox.testStateTabs = vanilla.Tabs((0, 5, 0, 0), groupTitles, showTabs=False)
     groups = [
@@ -194,6 +194,7 @@ def _buildGlyphTestTabs(controller, viewTop):
         ("contour", tabs[2]),
         ("segment", tabs[3]),
         ("point", tabs[4]),
+        ("components", tabs[5]),
     ]
     for group, tab in groups:
         top = 15
@@ -586,6 +587,7 @@ def _makeFontReportPNG(glyph, report):
     rep = NSBitmapImageRep.imageRepWithData_(data)
     data = rep.representationUsingType_properties_(NSPNGFileType, None)
     data = base64.b64encode(data)
+    data = data.decode("utf-8")
     return data
 
 
@@ -657,7 +659,7 @@ def _registerFactory():
                 for font in AllFonts():
                     for glyph in font:
                         glyph.naked().destroyAllRepresentations()
-            addRepresentationFactory("com.typesupply.GlyphNanny.Report", GlyphNannyReportFactory)
+            registerRepresentationFactory(Glyph, "com.typesupply.GlyphNanny.Report", GlyphNannyReportFactory)
         else:
             if "com.typesupply.GlyphNanny.Report" not in Glyph.representationFactories:
                 registerRepresentationFactory(Glyph, "com.typesupply.GlyphNanny.Report", GlyphNannyReportFactory)
@@ -1178,7 +1180,7 @@ def drawDuplicateComponents(componentIndexes, scale, glyph):
 
 registerTest(
     identifier="duplicateComponents",
-    level="component",
+    level="components",
     title="Duplicate Components",
     description="One or more components are duplicated.",
     testFunction=testDuplicateComponents,
