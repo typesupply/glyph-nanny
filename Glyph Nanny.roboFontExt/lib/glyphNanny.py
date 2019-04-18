@@ -231,14 +231,16 @@ class GlyphNannyTestFontsWindow(BaseWindowController):
 
     def __init__(self):
         self.testStateControlToIdentifier = {}
-        self.w = vanilla.Window((264, 350), "Glyph Nanny")
+        self.w = vanilla.Window((264, 380), "Glyph Nanny")
         # test states
         _buildGlyphTestTabs(self, 15)
         # global options
         self.w.ignoreOverlapCheckBox = vanilla.CheckBox((15, 245, -15, 22), "Ignore Outline Overlaps")
+        self.w.selectAllTestsButton = vanilla.Button((15, 285, -105-14-15, 20), "Select All", callback=self.selectTestsButtonCallback)
+        self.w.selectNoTestsButton = vanilla.Button((105+14+15, 285, -15, 20), "Select None", callback=self.selectTestsButtonCallback)
         # test buttons
-        self.w.testCurrentButton = vanilla.Button((15, 285, -15, 20), "Test Current Font", callback=self.testCurrentButtonCallback)
-        self.w.testAllButton = vanilla.Button((15, 315, -15, 20), "Test All Open Fonts", callback=self.testAllButtonCallback)
+        self.w.testCurrentButton = vanilla.Button((15, 315, -15, 20), "Test Current Font", callback=self.testCurrentButtonCallback)
+        self.w.testAllButton = vanilla.Button((15, 345, -15, 20), "Test All Open Fonts", callback=self.testAllButtonCallback)
 
         self.w.open()
 
@@ -254,6 +256,15 @@ class GlyphNannyTestFontsWindow(BaseWindowController):
         for control, identifier in self.testStateControlToIdentifier.items():
             testStates[identifier] = control.get()
         return testStates
+
+    def selectTestsButtonCallback(self, sender):
+        buttonName = sender.getTitle()
+        if "All" in buttonName:
+            state = True
+        elif "None" in buttonName:
+            state = False
+        for control, identifier in self.testStateControlToIdentifier.items():
+            control.set(state)
 
     def testCurrentButtonCallback(self, sender):
         font = CurrentFont()
