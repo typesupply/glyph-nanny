@@ -1193,6 +1193,8 @@ def testMetricsSymmetry(glyph):
     """
     Sometimes glyphs are almost symmetrical, but could be.
     """
+    if glyph.isEmpty():
+        return None
     left = glyph.leftMargin
     right = glyph.rightMargin
     diff = int(round(abs(left - right)))
