@@ -315,9 +315,8 @@ class FontReportWindow(BaseWindowController):
     def _writeHTML(self, path):
         if not path:
             return
-        f = open(path, "wb")
-        f.write(self.html)
-        f.close()
+        with open(path, "w") as file:
+            file.write(self.html)
 
     def markButtonCallback(self, sender):
         for name in self.font.keys():
