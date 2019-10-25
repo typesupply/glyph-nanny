@@ -1195,6 +1195,8 @@ def testMetricsSymmetry(glyph):
     """
     left = glyph.leftMargin
     right = glyph.rightMargin
+    if left is None or right is None:
+        return None
     diff = int(round(abs(left - right)))
     if diff == 1:
         message = "The side-bearings are 1 unit from being equal."
