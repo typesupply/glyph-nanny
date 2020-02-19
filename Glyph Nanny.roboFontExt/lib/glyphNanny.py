@@ -231,14 +231,15 @@ class GlyphNannyTestFontsWindow(BaseWindowController):
 
     def __init__(self):
         self.testStateControlToIdentifier = {}
-        self.w = vanilla.Window((264, 350), "Glyph Nanny")
+        self.w = vanilla.Window((264, 375), "Glyph Nanny")
         # test states
         _buildGlyphTestTabs(self, 15)
         # global options
         self.w.ignoreOverlapCheckBox = vanilla.CheckBox((15, 245, -15, 22), "Ignore Outline Overlaps")
+        self.w.generateImagesCheckBox = vanilla.CheckBox((15, 270, -15, 22), "Generate Images for Report")
         # test buttons
-        self.w.testCurrentButton = vanilla.Button((15, 285, -15, 20), "Test Current Font", callback=self.testCurrentButtonCallback)
-        self.w.testAllButton = vanilla.Button((15, 315, -15, 20), "Test All Open Fonts", callback=self.testAllButtonCallback)
+        self.w.testCurrentButton = vanilla.Button((15, 310, -15, 20), "Test Current Font", callback=self.testCurrentButtonCallback)
+        self.w.testAllButton = vanilla.Button((15, 340, -15, 20), "Test All Open Fonts", callback=self.testAllButtonCallback)
 
         self.w.open()
 
@@ -273,9 +274,10 @@ class GlyphNannyTestFontsWindow(BaseWindowController):
     def _processFont(self, font):
         testStates = self.getTestStates()
         ignoreOverlap = self.w.ignoreOverlapCheckBox.get()
+        generateImages = self.w.generateImagesCheckBox.get()
         progressBar = self.startProgress(tickCount=len(font))
         try:
-            html, glyphsWithIssues = getFontReport(font, testStates, ignoreOverlap=ignoreOverlap, progressBar=progressBar)
+            html, glyphsWithIssues = getFontReport(font, testStates, ignoreOverlap=ignoreOverlap, progressBar=progressBar, generateImages=generateImages)
         finally:
             progressBar.close()
         FontReportWindow(font, html, glyphsWithIssues)
@@ -315,9 +317,8 @@ class FontReportWindow(BaseWindowController):
     def _writeHTML(self, path):
         if not path:
             return
-        f = open(path, "wb")
-        f.write(self.html)
-        f.close()
+        with open(path, "w") as file:
+            file.write(self.html)
 
     def markButtonCallback(self, sender):
         for name in self.font.keys():
@@ -386,7 +387,7 @@ overlappingPoints
 
 # Font
 
-def getFontReport(font, testStates, ignoreOverlap=False, progressBar=None):
+def getFontReport(font, testStates, ignoreOverlap=False, progressBar=None, generateImages=False):
     """
     Get a report about all glyphs in the font.
 
@@ -419,13 +420,18 @@ def getFontReport(font, testStates, ignoreOverlap=False, progressBar=None):
             if value:
                 l.append("<li>%s</li>" % description)
         if l:
-            png = _makeFontReportPNG(glyph, report)
             r = glyphReportTemplate
             r = r.replace("__glyphName__", name)
             r = r.replace("__glyphReportItems__", "".join(l))
-            r = r.replace("__glyphPNG__", png)
+            if generateImages:
+                png = _makeFontReportPNG(glyph, report)
+                r = r.replace("__glyphPNG__", png)
+            else:
+                r = r.replace('<div class="glyphImage" style="background-image: url(data:image/png;base64,__glyphPNG__);"></div>','')
             glyphReports.append(r)
             glyphsWithIssues.append(name)
+    if not generateImages:
+        html = html.replace("float: left;","")
     html = html.replace("__glyphReports__", "".join(glyphReports))
     return html, glyphsWithIssues
 
@@ -1193,6 +1199,8 @@ def testMetricsSymmetry(glyph):
     """
     Sometimes glyphs are almost symmetrical, but could be.
     """
+    if glyph.leftMargin == None:
+        return
     left = glyph.leftMargin
     right = glyph.rightMargin
     if left is None or right is None:
