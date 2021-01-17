@@ -1,51 +1,6 @@
-# # Duplicate Contours
-# 
-# def testDuplicateContours(glyph):
-#     """
-#     Contours shouldn't be duplicated on each other.
-#     """
-#     contours = {}
-#     for index, contour in enumerate(glyph):
-#         contour = contour.copy()
-#         contour.autoStartSegment()
-#         pen = DigestPointPen()
-#         contour.drawPoints(pen)
-#         digest = pen.getDigest()
-#         if digest not in contours:
-#             contours[digest] = []
-#         contours[digest].append(index)
-#     duplicateContours = []
-#     for digest, indexes in contours.items():
-#         if len(indexes) > 1:
-#             duplicateContours.append(indexes[0])
-#     return duplicateContours
-# 
-# def drawDuplicateContours(contours, scale, glyph):
-#     font = glyph.getParent()
-#     color = defaults.colorRemove
-#     color.set()
-#     for contourIndex in contours:
-#         pen = CocoaPen(None)
-#         contour = glyph[contourIndex]
-#         contour.draw(pen)
-#         path = pen.path
-#         path.setLineWidth_(highlightLineWidth * scale)
-#         path.stroke()
-#         if defaults.showTitles:
-#             xMin, yMin, xMax, yMax = contour.box
-#             mid = calcMid((xMin, yMin), (xMax, yMin))
-#             x, y = mid
-#             drawString((x, y), "Duplicate Contour", scale, color, vAlignment="top", vOffset="-y")
-# 
-# registerTest(
-#     identifier="duplicateContours",
-#     level="contour",
-#     title="Duplicate Contours",
-#     description="One or more contours are duplicated.",
-#     testFunction=testDuplicateContours,
-#     drawingFunction=drawDuplicateContours
-# )
-# 
+# from ..wrappers import *
+
+
 # # Small Contours
 # 
 # def testForSmallContours(glyph):

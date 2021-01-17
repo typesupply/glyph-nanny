@@ -1,34 +1,45 @@
 from mojo import events
 from tests.registry import testRegistry
+from tests.tools import converBoundsToRect
+from tests.wrappers import *
 
 highlightStrokeWidth = 4
+arrowSize = (15, 25)
 
 class GlyphNannyEditorDisplayManager:
 
     def __init__(self, window=None):
-        self.testLayerDefaultProperties = dict(
-            straightLines=dict(
-                fillColor=None,
-                strokeColor="colorReview",
-                strokeWidth=highlightStrokeWidth
-            ),
-            pointsNearVerticalMetrics=dict(
-                fillColor=None,
-                strokeColor="colorReview",
-                strokeWidth=highlightStrokeWidth * 5
-                # XXX end triangle once Path can handle > 1 subpaths
-            )
-        )
-        self.loadDefaultLayerProperties()
-        self.testContainers = {}
         events.addObserver(self, "glyphWindowWillOpenCallback", "glyphWindowWillOpen")
         events.addObserver(self, "viewDidChangeGlyphCallback", "viewDidChangeGlyph")
+        self.showTitles = True
+        self.inactiveTests = []
+
+        self.contourLevelTests = []
+        self.segmentLevelTests = []
+        self.pointLevelTests = []
+        for testIdentifier, testData in testRegistry.items():
+            level = testData["level"]
+            if level == "contour":
+                self.contourLevelTests.append(testIdentifier)
+            elif level == "segment":
+                self.segmentLevelTests.append(testIdentifier)
+            elif level == "point":
+                self.pointLevelTests.append(testIdentifier)
+
+        self.contourContainers = {}
+        self.contourContainerTestIdentifiers = (
+            self.contourLevelTests
+          + self.segmentLevelTests
+          + self.pointLevelTests
+        )
+
         if window is not None:
             self.buildContainer(window)
+            self.setGlyph(wrapGlyph(window.getGlyph()))
 
     def destroy(self):
-        self.backgroundContainer.clearSublayers()
-        self.backgroundContainer.clearAnimation()
+        self.container.clearSublayers()
+        self.container.clearAnimation()
         events.removeObserver(self, "glyphWindowWillOpen")
         events.removeObserver(self, "viewDidChangeGlyph")
         self.stopObservingGlyph()
@@ -39,7 +50,8 @@ class GlyphNannyEditorDisplayManager:
 
     def glyphWindowWillOpenCallback(self, notification):
         window = notification["window"]
-        self.build(window)
+        self.buildContainer(window)
+        self.setGlyph(wrapGlyph(window.getGlyph()))
 
     def viewDidChangeGlyphCallback(self, notification):
         glyph = notification["glyph"]
@@ -54,12 +66,15 @@ class GlyphNannyEditorDisplayManager:
     def setGlyph(self, glyph):
         self.stopObservingGlyph()
         self.glyph = glyph
-        self.buildGlyphLayers()
+        self.destroyContourContainers()
+        self.buildContourContainers()
+        self.updateLayers()
         self.startObservingGlyph()
 
     glyphObservations = (
-        "Glyph.ContoursChanged",
-        "Glyph.ComponentsChanged"
+        "Glyph.Changed",
+        "Glyph.ContourWillBeAdded",
+        "Glyph.ContourWillBeDeleted"
     )
 
     def _makeObservationCallbackName(self, notification):
@@ -87,126 +102,155 @@ class GlyphNannyEditorDisplayManager:
                 notification
             )
 
-    def glyphContoursChangedCallback(self, notification):
+    def glyphChangedCallback(self, notification):
         self.updateLayers()
 
-    def glyphComponentsChangedCallback(self, notification):
-        self.updateLayers()
+    def glyphContourWillBeAddedCallback(self, notification):
+        contour = notification.data["object"]
+        contour = wrapContour(contour)
+        self.buildContourContainer(contour)
 
-    # -----
-    # Build
-    # -----
+    def glyphContourWillBeDeletedCallback(self, notification):
+        contour = notification.data["object"]
+        contour = wrapContour(contour)
+        self.destroyContourContainer(contour)
 
-    def loadDefaultLayerProperties(self):
-        # XXX these need to be loaded from user defaults
-        replacements = dict(
-            colorInform=(0, 0, 0.7, 0.3),
-            colorReview=(1, 0.7, 0, 0.7),
-            colorRemove=(1, 0, 0, 0.5),
-            colorInsert=(0, 1, 0, 0.75)
-        )
-        replacableProperties = [
-            "backgroundColor",
-            "borderColor",
-            "fillColor",
-            "strokeColor"
-        ]
-        self.testLayerProperties = {}
-        for testIdentifier, defaults in self.testLayerDefaultProperties.items():
-            updated = dict(defaults)
-            for property in replacableProperties:
-                if property in updated:
-                    value = updated[property]
-                    updated[property] = replacements.get(value, value)
-            self.testLayerProperties[testIdentifier] = updated
-
-    def getTestLayerProperties(self, testIdentifier):
-        return self.testLayerProperties[testIdentifier]
+    # ----------------
+    # Layer Management
+    # ----------------
 
     def buildContainer(self, window):
-        self.backgroundContainer = window.extensionContainer(
+        self.container = window.extensionContainer(
             "com.typesupply.GlyphNanny",
             location="background",
             clear=True
         )
-        self.buildSegmentTestContainers()
 
-    def buildSegmentTestContainers(self):
-        for testIdentifier, testData in testRegistry.items():
-            layer = self.testContainers[testIdentifier] = self.backgroundContainer.appendBaseSublayer(
-                name=testIdentifier,
-                position=(0, 0),
-                size=("width", "height"),
-                backgroundColor=(1, 1, 0, 1)
+    def buildContourContainers(self):
+        """
+        Build all necessary contour containers.
+        """
+        if self.glyph is None:
+            return
+        if not self.glyph.contours:
+            return
+        with self.container.sublayerGroup():
+            for contour in self.glyph.contours:
+                self.buildContourContainer(contour)
+
+    def destroyContourContainers(self):
+        """
+        Destroy all contour containers.
+        """
+        contours = list(self.contourContainers.keys())
+        for contour in contours:
+            self.destroyContourContainer(contour)
+
+    def buildContourContainer(self, contour):
+        """
+        Build contour container for a specific contour.
+        """
+        x, y, w, h = converBoundsToRect(contour.bounds)
+        contourContainer = self.contourContainers[contour] = self.container.appendBaseSublayer()
+        for testIdentifier in self.contourContainerTestIdentifiers:
+            testData = testRegistry[testIdentifier]
+            layer = contourContainer.appendBaseSublayer(
+                name=testIdentifier
             )
             layer.setInfoValue("representationName", testData["representationName"])
-            layer.appendTextLineSublayer(
-                fillColor=(1, 0, 0, 0.25),
-                text=testIdentifier,
-                horizontalAlignment="center",
-                verticalAlignment="center",
-                pointSize=20
-            )
+            layer.setInfoValue("representedValue", None)
 
-    def buildGlyphLayers(self):
-        self.contourLayers = {}
-        for contourIndex, contour in enumerate(self.glyph):
-            self.contourLayers[contour] = []
-            for testIdentifier, container in self.testContainers.items():
-                properties = self.testLayerProperties[testIdentifier]
-                layer = container.appendPathSublayer(
-                    name=testIdentifier + str(contourIndex),
-                    **properties
-                )
-                layer.setInfoValue("representationName", container.getInfoValue("representationName"))
-                layer.setInfoValue("testIdentifier", testIdentifier)
-                layer.setInfoValue("testData", None)
-                self.contourLayers[contour].append(layer)
-        self.updateLayers()
+    def destroyContourContainer(self, contour):
+        """
+        Destroy contour container for a specific contour.
+        """
+        contourContainer = self.contourContainers[contour]
+        self.container.removeSublayer(contourContainer)
+        del self.contourContainers[contour]
 
     def updateLayers(self):
-        # Contours
-        for contour, contourLayers in self.contourLayers.items():
-            for contourLayer in contourLayers:
-                representationName = contourLayer.getInfoValue("representationName")
-                existingData = contourLayer.getInfoValue("testData")
-                data = contour.getRepresentation(representationName)
-                if not existingData and not data:
-                    continue
-                if data != existingData:
-                    testIdentifier = contourLayer.getInfoValue("testIdentifier")
+        for contour in self.glyph.contours:
+            contourContainer = self.contourContainers[contour]
+            for testIdentifier in self.contourContainerTestIdentifiers:
+                testLayer = contourContainer.getSublayer(testIdentifier)
+                representationName = testLayer.getInfoValue("representationName")
+                representedValue = testLayer.getInfoValue("representedValue")
+                newValue = contour.getRepresentation(representationName)
+                if not newValue and not representedValue:
+                    pass
+                elif newValue != representedValue:
                     method = getattr(self, "visualize_" + testIdentifier)
-                    method(contourLayer, contour, existingData, data)
-                    contourLayer.setInfoValue("testData", data)
+                    testLayer.setInfoValue("representedValue", newValue)
+                    method(testLayer, newValue)
 
-    # ---------
-    # Visualize
-    # ---------
+    # -------------
+    # Visualization
+    # -------------
 
-    # Segments
+    def getColor(self, color):
+        replacements = dict(
+            background=(1, 1, 1, 1),
+            inform=(0, 0, 0.7, 0.3),
+            review=(1, 0.7, 0, 0.7),
+            remove=(1, 0, 0, 0.5),
+            insert=(0, 1, 0, 0.75)
+        )
+        return replacements[color]
 
-    def visualize_straightLines(self, contourLayer, contour, existingData, data):
-        with contourLayer.propertyGroup():
-            if data:
-                pen = contourLayer.getPen()
-                for pt1, pt2 in data:
-                    pen.moveTo(pt1)
-                    pen.lineTo(pt2)
-                    pen.endPath()
-            else:
-                contourLayer.setPath(None)
+    def getTextProperties(self):
+        properties = dict(
+            font="system",
+            weight="medium",
+            pointSize=10,
+            horizontalAlignment="center",
+            verticalAlignment="center",
+            fillColor=(0, 0, 0, 1),
+            backgroundColor=self.getColor("background"),
+            cornerRadius=5,
+            padding=(10, 2)
+        )
+        return properties
 
-    def visualize_pointsNearVerticalMetrics(self, contourLayer, contour, existingData, data):
-        with contourLayer.propertyGroup():
-            if data:
-                pen = contourLayer.getPen()
-                for verticalMetric, points in data.items():
-                    for (x, y) in points:
-                        pen.moveTo((x, y))
-                        pen.lineTo((x, verticalMetric))
-                        pen.endPath()
-            else:
-                contourLayer.setPath(None)
+    # Segment
+    # -------
+
+    def visualize_straightLines(self, layer, data):
+        layer.clearSublayers()
+        for pt1, pt2 in data:
+            lineLayer = layer.appendLineSublayer(
+                startPoint=pt1,
+                endPoint=pt2,
+                strokeWidth=highlightStrokeWidth,
+                strokeColor=self.getColor("review")
+            )
+            textProperties = self.getTextProperties()
+            textProperties["fillColor"] = self.getColor("review")
+            x1, y1 = pt1
+            x2, y2 = pt2
+            x = (x1 + x2) / 2
+            y = (y1 + y2) / 2
+            lineLayer.appendTextLineSublayer(
+                text="Straighten Line",
+                position=(x, y),
+                **textProperties
+            )
+
+    def visualize_pointsNearVerticalMetrics(self, layer, data):
+        layer.clearSublayers()
+        for verticalMetric, points in data.items():
+            for (x, y) in points:
+                lineLayer = layer.appendLineSublayer(
+                    startPoint=(x, y),
+                    endPoint=(x, verticalMetric),
+                    strokeWidth=highlightStrokeWidth,
+                    strokeColor=self.getColor("review"),
+                    endSymbol=dict(
+                        name="triangle",
+                        fillColor=self.getColor("review"),
+                        size=arrowSize
+                    )
+                )
+
 
 # ----
 # Test

@@ -3,14 +3,14 @@ These functions convert the incoming
 objects to fontParts objects if necessary.
 """
 
-from fontParts.world import dispatcher
-
 __all__ = (
-    "RFont",
-    "RGlyph",
-    "RContour"
+    "wrapFont",
+    "wrapGlyph",
+    "wrapContour"
 )
 
+import defcon
+from fontParts.world import dispatcher
 
 RFont = dispatcher["RFont"]
 RGlyph = dispatcher["RGlyph"]
