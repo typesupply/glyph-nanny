@@ -3,6 +3,7 @@ import defcon
 testRegistry = {}
 
 fallbackDestructiveNotifications = {
+    defcon.Glyph : ["Glyph.Changed"],
     defcon.Contour : ["Contour.Changed"]
 }
 
