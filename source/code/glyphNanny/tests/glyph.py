@@ -1,3 +1,8 @@
+from fontPens.digestPointPen import DigestPointPen
+import defcon
+from . import registry
+from .wrappers import *
+
 # def drawTextReport(report, scale, glyph):
 #     text = []
 #     r = report.get("unicodeValue")
@@ -154,14 +159,14 @@
 #             bounds = contour.box
 #         lines = {}
 #         # line to
-#         previous = _unwrapPoint(contour[-1].onCurve)
+#         previous = unwrapPoint(contour[-1].onCurve)
 #         for segment in contour:
-#             point = _unwrapPoint(segment.onCurve)
+#             point = unwrapPoint(segment.onCurve)
 #             if segment.type == "line":
 #                 # only process completely horizontal/vertical lines
 #                 # that have a length greater than 0
 #                 if (previous[primaryCoordinate] == point[primaryCoordinate]) and (previous[secondaryCoordinate] != point[secondaryCoordinate]):
-#                     angle = _calcAngle(previous, point)
+#                     angle = calculateAngle(previous, point)
 #                     p = point[primaryCoordinate]
 #                     s1 = previous[secondaryCoordinate]
 #                     s2 = point[secondaryCoordinate]
@@ -176,10 +181,10 @@
 #         previous = contour[-1]
 #         for segment in contour:
 #             if segment.type == "curve" and previous.type == "curve":
-#                 bcp1 = _unwrapPoint(previous[1])
-#                 bcp2 = _unwrapPoint(segment[-1])
+#                 bcp1 = unwrapPoint(previous[1])
+#                 bcp2 = unwrapPoint(segment[-1])
 #                 if bcp1[primaryCoordinate] == bcp2[primaryCoordinate]:
-#                     angle = _calcAngle(bcp1, bcp2)
+#                     angle = calculateAngle(bcp1, bcp2)
 #                     p = bcp1[primaryCoordinate]
 #                     s1 = bcp1[secondaryCoordinate]
 #                     s2 = bcp2[secondaryCoordinate]
@@ -286,27 +291,32 @@
 
 
 # # Duplicate Contours
-# 
-# def testDuplicateContours(glyph):
-#     """
-#     Contours shouldn't be duplicated on each other.
-#     """
-#     contours = {}
-#     for index, contour in enumerate(glyph):
-#         contour = contour.copy()
-#         contour.autoStartSegment()
-#         pen = DigestPointPen()
-#         contour.drawPoints(pen)
-#         digest = pen.getDigest()
-#         if digest not in contours:
-#             contours[digest] = []
-#         contours[digest].append(index)
-#     duplicateContours = []
-#     for digest, indexes in contours.items():
-#         if len(indexes) > 1:
-#             duplicateContours.append(indexes[0])
-#     return duplicateContours
-# 
+
+def testDuplicateContours(glyph):
+    """
+    Contours shouldn't be duplicated on each other.
+
+    Data structure:
+
+        [contourIndex, ...]
+    """
+    glyph = wrapGlyph(glyph)
+    contours = {}
+    for index, contour in enumerate(glyph):
+        contour = contour.copy()
+        contour.autoStartSegment()
+        pen = DigestPointPen()
+        contour.drawPoints(pen)
+        digest = pen.getDigest()
+        if digest not in contours:
+            contours[digest] = []
+        contours[digest].append(index)
+    duplicateContours = []
+    for digest, indexes in contours.items():
+        if len(indexes) > 1:
+            duplicateContours.append(indexes[0])
+    return duplicateContours
+
 # def drawDuplicateContours(contours, scale, glyph):
 #     font = glyph.getParent()
 #     color = defaults.colorRemove
@@ -323,12 +333,14 @@
 #             mid = calcMid((xMin, yMin), (xMax, yMin))
 #             x, y = mid
 #             drawString((x, y), "Duplicate Contour", scale, color, vAlignment="top", vOffset="-y")
-# 
-# registerTest(
-#     identifier="duplicateContours",
-#     level="contour",
-#     title="Duplicate Contours",
-#     description="One or more contours are duplicated.",
-#     testFunction=testDuplicateContours,
-#     drawingFunction=drawDuplicateContours
-# )
+
+
+registry.registerTest(
+    identifier="duplicateContours",
+    level="glyph",
+    title="Duplicate Contours",
+    description="One or more contours are duplicated.",
+    testFunction=testDuplicateContours,
+    defconClass=defcon.Glyph,
+    destructiveNotifications=["Glyph.ContoursChanged"]
+)

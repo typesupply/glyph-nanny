@@ -49,12 +49,12 @@
 #                 prevSegment = contour[segmentIndex - 1]
 #                 nextSegment = contour[(segmentIndex + 1) % len(contour)]
 #                 if nextSegment.type == "line":
-#                     thisAngle = _calcAngle(prevSegment.onCurve, segment.onCurve)
-#                     nextAngle = _calcAngle(segment.onCurve, nextSegment.onCurve)
+#                     thisAngle = calculateAngle(prevSegment.onCurve, segment.onCurve)
+#                     nextAngle = calculateAngle(segment.onCurve, nextSegment.onCurve)
 #                     if thisAngle == nextAngle:
 #                         if index not in unnecessaryPoints:
 #                             unnecessaryPoints[index] = []
-#                         unnecessaryPoints[index].append(_unwrapPoint(segment.onCurve))
+#                         unnecessaryPoints[index].append(unwrapPoint(segment.onCurve))
 #     return unnecessaryPoints
 # 
 # def drawUnnecessaryPoints(contours, scale, glyph):
@@ -89,9 +89,9 @@
 #     for index, contour in enumerate(glyph):
 #         if len(contour) == 1:
 #             continue
-#         prev = _unwrapPoint(contour[-1].onCurve)
+#         prev = unwrapPoint(contour[-1].onCurve)
 #         for segment in contour:
-#             point = _unwrapPoint(segment.onCurve)
+#             point = unwrapPoint(segment.onCurve)
 #             if point == prev:
 #                 if index not in overlappingPoints:
 #                     overlappingPoints[index] = set()

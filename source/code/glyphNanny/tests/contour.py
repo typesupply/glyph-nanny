@@ -1,4 +1,6 @@
-# from ..wrappers import *
+import defcon
+from . import registry
+from .wrappers import *
 
 
 # # Small Contours
@@ -45,46 +47,37 @@
 #     testFunction=testForSmallContours,
 #     drawingFunction=drawSmallContours
 # )
-# 
-# # Open Contours
-# 
-# def testForOpenContours(glyph):
-#     """
-#     Contours should be closed.
-#     """
-#     openContours = {}
-#     for index, contour in enumerate(glyph):
-#         if not contour.open:
-#             continue
-#         start = contour[0].onCurve
-#         start = (start.x, start.y)
-#         end = contour[-1].onCurve
-#         end = (end.x, end.y)
-#         if start != end:
-#             openContours[index] = (start, end)
-#     return openContours
-# 
-# def drawOpenContours(contours, scale, glyph):
-#     color = defaults.colorInsert
-#     color.set()
-#     for contourIndex, points in contours.items():
-#         start, end = points
-#         path = drawLine(start, end, scale=scale, arrowStart=True)
-#         path.setLineWidth_(generalLineWidth * scale)
-#         path.stroke()
-#         if defaults.showTitles:
-#             mid = calcMid(start, end)
-#             drawString(mid, "Open Contour", scale, color, backgroundColor=NSColor.whiteColor())
-# 
-# registerTest(
-#     identifier="openContours",
-#     level="contour",
-#     title="Open Contours",
-#     description="One or more contours are not properly closed.",
-#     testFunction=testForOpenContours,
-#     drawingFunction=drawOpenContours
-# )
-# 
+
+# Open Contours
+
+def testForOpenContour(contour):
+    """
+    Contours should be closed.
+
+    Data structure:
+
+        (startPoint, endPoint)
+    """
+    contour = wrapContour(contour)
+    if contour.open:
+        start = contour[0].onCurve
+        start = (start.x, start.y)
+        end = contour[-1].onCurve
+        end = (end.x, end.y)
+        if start != end:
+            return (start, end)
+    return None
+
+registry.registerTest(
+    identifier="openContour",
+    level="contour",
+    title="Open Contours",
+    description="One or more contours are not properly closed.",
+    testFunction=testForOpenContour,
+    defconClass=defcon.Contour,
+    destructiveNotifications=["Contour.PointsChanged"]
+)
+
 # # Extreme Points
 # 
 # def testForExtremePoints(glyph):
