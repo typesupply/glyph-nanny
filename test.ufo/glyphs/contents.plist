@@ -1,24 +1,26 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict>
-	<key>A</key>
-	<string>A_.glif</string>
-	<key>Agrave</key>
-	<string>Agrave_.glif</string>
-	<key>B</key>
-	<string>B_.glif</string>
-	<key>C</key>
-	<string>C_.glif</string>
-	<key>D</key>
-	<string>D_.glif</string>
-	<key>E</key>
-	<string>E_.glif</string>
-	<key>E.alt1</key>
-	<string>E_.alt1.glif</string>
-	<key>E.alt2</key>
-	<string>E_.alt2.glif</string>
-	<key>E.alt3</key>
-	<string>E_.alt3.glif</string>
-</dict>
+	<dict>
+		<key>A</key>
+		<string>A_.glif</string>
+		<key>Agrave</key>
+		<string>A_grave.glif</string>
+		<key>B</key>
+		<string>B_.glif</string>
+		<key>C</key>
+		<string>C_.glif</string>
+		<key>D</key>
+		<string>D_.glif</string>
+		<key>E</key>
+		<string>E_.glif</string>
+		<key>E.alt1</key>
+		<string>E_.alt1.glif</string>
+		<key>E.alt2</key>
+		<string>E_.alt2.glif</string>
+		<key>E.alt3</key>
+		<string>E_.alt3.glif</string>
+		<key>F</key>
+		<string>F_.glif</string>
+	</dict>
 </plist>

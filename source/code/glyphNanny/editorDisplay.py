@@ -1,7 +1,10 @@
 import merz
 from mojo import events
 from tests.registry import testRegistry
-from tests.tools import convertBoundsToRect, calculateMidpoint
+from tests.tools import (
+    convertBoundsToRect,
+    calculateMidpoint
+)
 from tests.wrappers import *
 
 lineStrokeWidth = 1
@@ -16,13 +19,18 @@ class GlyphNannyEditorDisplayManager:
         self.inactiveTests = []
 
         self.glyphInfoLevelTests = []
+        self.metricsLevelTests = []
         self.glyphLevelTests = []
         self.contourLevelTests = []
         self.segmentLevelTests = []
         self.pointLevelTests = []
         for testIdentifier, testData in testRegistry.items():
             level = testData["level"]
-            if level == "glyph":
+            if level == "glyphInfo":
+                self.glyphInfoLevelTests.append(testIdentifier)
+            elif level == "metrics":
+                self.metricsLevelTests.append(testIdentifier)
+            elif level == "glyph":
                 self.glyphLevelTests.append(testIdentifier)
             elif level == "contour":
                 self.contourLevelTests.append(testIdentifier)
@@ -136,6 +144,7 @@ class GlyphNannyEditorDisplayManager:
         """
         Build all necessary glyph containers.
         """
+        # contours
         for testIdentifier in self.glyphLevelTests:
             testData = testRegistry[testIdentifier]
             layer = self.container.appendBaseSublayer(
@@ -143,6 +152,24 @@ class GlyphNannyEditorDisplayManager:
             )
             layer.setInfoValue("representationName", testData["representationName"])
             layer.setInfoValue("representedValue", None)
+        # info
+        textProperties = self.getTextProperties()
+        textProperties["fillColor"] = self.getColor("inform")
+        textProperties["horizontalAlignment"] = "left"
+        textProperties["verticalAlignment"] = "top"
+        layer = self.container.appendTextLineSublayer(
+            name="glyphInfo",
+            position=(30, -50),
+            **textProperties
+        )
+        layer.setInfoValue("representedValue", None)
+        # metrics
+        layer = self.container.appendTextLineSublayer(
+            name="metrics",
+            position=(30, -10),
+            **textProperties
+        )
+        layer.setInfoValue("representedValue", None)
 
     def buildContourContainers(self):
         """
@@ -186,14 +213,116 @@ class GlyphNannyEditorDisplayManager:
         del self.contourContainers[contour]
 
     def updateLayers(self, forceUpdate=False):
+        # info
+        self._updateGlyphInfoLayer()
+        # metrics
+        self._updateMetricsLayer()
+        # glyph
         for testIdentifier in self.glyphLevelTests:
             testLayer = self.container.getSublayer(testIdentifier)
             self._updateLayer(testLayer, self.glyph, testIdentifier, forceUpdate)
+        # contour, segment, points
         for contour in self.glyph.contours:
             contourContainer = self.contourContainers[contour]
             for testIdentifier in self.contourContainerTestIdentifiers:
                 testLayer = contourContainer.getSublayer(testIdentifier)
                 self._updateLayer(testLayer, contour, testIdentifier, forceUpdate)
+
+    def _updateGlyphInfoLayer(self):
+        layer = self.container.getSublayer("glyphInfo")
+        glyphInfoData = {}
+        for testIdentifier in self.glyphInfoLevelTests:
+            representationName = testRegistry[testIdentifier]["representationName"]
+            glyphInfoData[testIdentifier] = self.glyph.getRepresentation(representationName)
+        representedValue = layer.getInfoValue("representedValue")
+        if glyphInfoData != representedValue:
+            layer.setInfoValue("representedValue", glyphInfoData)
+            text = []
+            for key, value in sorted(glyphInfoData.items()):
+                text += value
+            text = "\n".join(text)
+            layer.setText(text)
+
+    def _updateMetricsLayer(self):
+        layer = self.container.getSublayer("metrics")
+        metricsData = {}
+        for testIdentifier in self.metricsLevelTests:
+            representationName = testRegistry[testIdentifier]["representationName"]
+            metricsData[testIdentifier] = self.glyph.getRepresentation(representationName)
+        representedValue = layer.getInfoValue("representedValue")
+        if metricsData != representedValue:
+            layer.setInfoValue("representedValue", metricsData)
+            arrowSettings = self.getArrowSymbolSettings()
+            arrowSettings["strokeColor"] = self.getColor("review")
+            y = 0
+            offset = -20
+            for testIdentifier, data in sorted(metricsData.items()):
+                if not data:
+                    continue
+                if testIdentifier == "metricsSymmetry":
+                    left = data["left"]
+                    right = data["right"]
+                    width = data["width"]
+                    message = data["message"]
+                    layer.appendLineSublayer(
+                        startPoint=(0, y),
+                        endPoint=(width, y),
+                        strokeColor=self.getColor("review"),
+                        strokeWidth=lineStrokeWidth,
+                        startSymbol=arrowSettings,
+                        endSymbol=arrowSettings
+                    )
+                    if self.showTitles:
+                        textProperties = self.getTextProperties()
+                        textProperties["fillColor"] = self.getColor("review")
+                        textProperties["horizontalAlignment"] = "center"
+                        layer.appendTextLineSublayer(
+                            position=(width / 2, y),
+                            text=message,
+                            **textProperties
+                        )
+                    y += offset
+                else:
+                    left = data["left"]
+                    right = data["right"]
+                    width = data["width"]
+                    leftMessage = data["leftMessage"]
+                    rightMessage = data["rightMessage"]
+                    if leftMessage:
+                        layer.appendLineSublayer(
+                            startPoint=(0, y),
+                            endPoint=(left, y),
+                            strokeColor=self.getColor("review"),
+                            strokeWidth=lineStrokeWidth,
+                            startSymbol=arrowSettings
+                        )
+                        if self.showTitles:
+                            textProperties = self.getTextProperties()
+                            textProperties["fillColor"] = self.getColor("review")
+                            textProperties["horizontalAlignment"] = "left"
+                            layer.appendTextLineSublayer(
+                                position=(left, y),
+                                text=leftMessage,
+                                **textProperties
+                            )
+                    if rightMessage:
+                        layer.appendLineSublayer(
+                            startPoint=(right, y),
+                            endPoint=(width, y),
+                            strokeColor=self.getColor("review"),
+                            strokeWidth=lineStrokeWidth,
+                            endSymbol=arrowSettings
+                        )
+                        if self.showTitles:
+                            textProperties = self.getTextProperties()
+                            textProperties["fillColor"] = self.getColor("review")
+                            textProperties["horizontalAlignment"] = "right"
+                            layer.appendTextLineSublayer(
+                                position=(right, y),
+                                text=rightMessage,
+                                **textProperties
+                            )
+                    y += offset
 
     def _updateLayer(self, layer, obj, testIdentifier, forceUpdate):
         representationName = layer.getInfoValue("representationName")
@@ -214,7 +343,7 @@ class GlyphNannyEditorDisplayManager:
                 print("missing method:", methodName)
             else:
                 method = getattr(self, methodName)
-                method(layer, newValue)
+                method(obj, layer, newValue)
 
     # -------------
     # Visualization
@@ -226,7 +355,7 @@ class GlyphNannyEditorDisplayManager:
             inform=(0, 0, 0.7, 0.3),
             review=(1, 0.7, 0, 0.7),
             remove=(1, 0, 0, 0.5),
-            insert=(0, 1, 0, 0.75)
+            insert=(0, 0.8, 0, 0.75)
         )
         return replacements[color]
 
@@ -240,7 +369,7 @@ class GlyphNannyEditorDisplayManager:
             fillColor=(0, 0, 0, 1),
             backgroundColor=self.getColor("background"),
             cornerRadius=5,
-            padding=(10, 2)
+            padding=(5, 2)
         )
         return properties
 
@@ -249,6 +378,15 @@ class GlyphNannyEditorDisplayManager:
             name="GlyphNanny.editorArrow",
             size=(30, 20),
             strokeColor=self.getColor("review"),
+            strokeWidth=1
+        )
+        return settings
+
+    def getInsertSymbolSettings(self):
+        settings = dict(
+            name="GlyphNanny.editorInsert",
+            size=(17, 17),
+            strokeColor=self.getColor("insert"),
             strokeWidth=1
         )
         return settings
@@ -265,7 +403,51 @@ class GlyphNannyEditorDisplayManager:
     # Glyph
     # -----
 
-    def visualize_duplicateContours(self, layer, data):
+    def visualize_stemWidths(self, glyph, layer, data):
+        layer.clearSublayers()
+        hProblems = data["horizontal"]
+        vProblems = data["vertical"]
+        if not hProblems and not vProblems:
+            return
+        arrowSettings = self.getArrowSymbolSettings()
+        textProperties = self.getTextProperties()
+        textProperties["fillColor"] = self.getColor("review")
+        for y1, y2, xPositions in hProblems:
+            xM = sum(xPositions) / len(xPositions)
+            lineLayer = layer.appendLineSublayer(
+                startPoint=(xM, y1),
+                endPoint=(xM, y2),
+                strokeColor=self.getColor("review"),
+                strokeWidth=lineStrokeWidth,
+                startSymbol=arrowSettings,
+                endSymbol=arrowSettings
+            )
+            if self.showTitles:
+                x, y = calculateMidpoint((xM, y1), (xM, y2))
+                lineLayer.appendTextLineSublayer(
+                    text="Check Stem",
+                    position=(x, y),
+                    **textProperties
+                )
+        for x1, x2, yPositions in vProblems:
+            yM = sum(yPositions) / len(yPositions)
+            lineLayer = layer.appendLineSublayer(
+                startPoint=(x1, yM),
+                endPoint=(x2, yM),
+                strokeColor=self.getColor("review"),
+                strokeWidth=lineStrokeWidth,
+                startSymbol=arrowSettings,
+                endSymbol=arrowSettings
+            )
+            if self.showTitles:
+                x, y = calculateMidpoint((x1, yM), (x2, yM))
+                lineLayer.appendTextLineSublayer(
+                    text="Check Stem",
+                    position=(x, y),
+                    **textProperties
+                )
+
+    def visualize_duplicateContours(self, glyph, layer, data):
         layer.clearSublayers()
         if data:
             for contourIndex in data:
@@ -288,10 +470,55 @@ class GlyphNannyEditorDisplayManager:
                     **textProperties
                 )
 
+    def visualize_duplicateComponents(self, component, layer, data):
+        layer.clearSublayers()
+        if data:
+            for componentIndex in data:
+                component = self.glyph.components[componentIndex]
+                path = component.getRepresentation("merz.CGPath")
+                pathLayer = layer.appendPathSublayer(
+                    path=path,
+                    fillColor=None,
+                    strokeColor=self.getColor("remove"),
+                    strokeWidth=highlightStrokeWidth
+                )
+                textProperties = self.getTextProperties()
+                textProperties["fillColor"] = self.getColor("remove")
+                textProperties["verticalAlignment"] = "top"
+                xMin, yMin, xMax, yMax = component.bounds
+                x, y = calculateMidpoint((xMin, yMin), (xMax, yMax))
+                pathLayer.appendTextLineSublayer(
+                    text="Duplicate Component",
+                    position=(x, yMin),
+                    **textProperties
+                )
+
     # Contour
     # -------
 
-    def visualize_openContour(self, layer, data):
+    def visualize_smallContours(self, contour, layer, data):
+        layer.clearSublayers()
+        if data:
+            path = contour.getRepresentation("merz.CGPath")
+            pathLayer = layer.appendPathSublayer(
+                path=contour.getRepresentation("merz.CGPath"),
+                fillColor=None,
+                strokeWidth=highlightStrokeWidth,
+                strokeColor=self.getColor("remove")
+            )
+            if self.showTitles:
+                textProperties = self.getTextProperties()
+                textProperties["fillColor"] = self.getColor("remove")
+                textProperties["verticalAlignment"] = "top"
+                xMin, yMin, xMax, yMax = contour.bounds
+                x, y = calculateMidpoint((xMin, yMin), (xMax, yMax))
+                pathLayer.appendTextLineSublayer(
+                    text="Tiny Contour",
+                    position=(x, yMin),
+                    **textProperties
+                )
+
+    def visualize_openContour(self, contour, layer, data):
         layer.clearSublayers()
         if data:
             arrowSymbolSettings = self.getArrowSymbolSettings()
@@ -314,10 +541,60 @@ class GlyphNannyEditorDisplayManager:
                     **textProperties
                 )
 
+    def visualize_curveSymmetry(self, contour, layer, data):
+        layer.clearSublayers()
+        if data:
+            arrowSettings = self.getArrowSymbolSettings()
+            arrowSettings["strokeColor"] = self.getColor("review")
+            for toCurve, fromCurve in data:
+                to3, to2, to1, to0 = toCurve
+                from0, from1, from2, from3 = fromCurve
+                if to0 != from0:
+                    layer.appendLineSublayer(
+                        startPoint=from0,
+                        endPoint=to0,
+                        strokeColor=self.getColor("review"),
+                        strokeWidth=lineStrokeWidth,
+                        endSymbol=arrowSettings
+                    )
+                if to1 != from1:
+                    layer.appendLineSublayer(
+                        startPoint=from1,
+                        endPoint=to1,
+                        strokeColor=self.getColor("review"),
+                        strokeWidth=lineStrokeWidth,
+                        endSymbol=arrowSettings
+                    )
+                if to2 != from2:
+                    layer.appendLineSublayer(
+                        startPoint=from2,
+                        endPoint=to2,
+                        strokeColor=self.getColor("review"),
+                        strokeWidth=lineStrokeWidth,
+                        endSymbol=arrowSettings
+                    )
+                if to3 != from3:
+                    layer.appendLineSublayer(
+                        startPoint=from3,
+                        endPoint=to3,
+                        strokeColor=self.getColor("review"),
+                        strokeWidth=lineStrokeWidth,
+                        endSymbol=arrowSettings
+                    )
+                curvePath = layer.appendPathSublayer(
+                    fillColor=None,
+                    strokeColor=self.getColor("review"),
+                    strokeWidth=lineStrokeWidth
+                )
+                pen = curvePath.getPen()
+                pen.moveTo(to3)
+                pen.curveTo(to2, to1, to0)
+                pen.endPath()
+
     # Segment
     # -------
 
-    def visualize_straightLines(self, layer, data):
+    def visualize_straightLines(self, contour, layer, data):
         layer.clearSublayers()
         for pt1, pt2 in data:
             lineLayer = layer.appendLineSublayer(
@@ -336,7 +613,7 @@ class GlyphNannyEditorDisplayManager:
                     **textProperties
                 )
 
-    def visualize_pointsNearVerticalMetrics(self, layer, data):
+    def visualize_pointsNearVerticalMetrics(self, contour, layer, data):
         layer.clearSublayers()
         arrowSymbolSettings = self.getArrowSymbolSettings()
         for verticalMetric, points in data.items():
@@ -349,7 +626,7 @@ class GlyphNannyEditorDisplayManager:
                     endSymbol=arrowSymbolSettings
                 )
 
-    def visualize_unsmoothSmooths(self, layer, data):
+    def visualize_unsmoothSmooths(self, contour, layer, data):
         layer.clearSublayers()
         for pt1, pt2, pt3 in data:
             pathLayer = layer.appendPathSublayer(
@@ -372,7 +649,7 @@ class GlyphNannyEditorDisplayManager:
                     **textProperties
                 )
 
-    def visualize_complexCurves(self, layer, data):
+    def visualize_complexCurves(self, contour, layer, data):
         layer.clearSublayers()
         for pt1, pt2, pt3, pt4 in data:
             pathLayer = layer.appendPathSublayer(
@@ -394,7 +671,7 @@ class GlyphNannyEditorDisplayManager:
                     **textProperties
                 )
 
-    def visualize_crossedHandles(self, layer, data):
+    def visualize_crossedHandles(self, contour, layer, data):
         layer.clearSublayers()
         for handleData in data:
             pt1, pt2, pt3, pt4 = handleData["points"]
@@ -430,7 +707,7 @@ class GlyphNannyEditorDisplayManager:
                     **textProperties
                 )
 
-    def visualize_unnecessaryHandles(self, layer, data):
+    def visualize_unnecessaryHandles(self, contour, layer, data):
         layer.clearSublayers()
         symbolSettings = self.getRemoveSymbolSettings()
         for pt1, pt2 in data:
@@ -452,7 +729,7 @@ class GlyphNannyEditorDisplayManager:
                     **textProperties
                 )
 
-    def visualize_unevenHandles(self, layer, data):
+    def visualize_unevenHandles(self, contour, layer, data):
         layer.clearSublayers()
         for off1, off2, shape1, shape2 in data:
             pathLayer = layer.appendPathSublayer(
@@ -477,11 +754,85 @@ class GlyphNannyEditorDisplayManager:
                     **textProperties
                 )
 
+    def visualize_extremePoints(self, contour, layer, data):
+        layer.clearSublayers()
+        if data:
+            imageSettings = self.getInsertSymbolSettings()
+            for point in data:
+                symbolLayer = layer.appendSymbolSublayer(
+                    position=point,
+                    size=imageSettings["size"],
+                    imageSettings=imageSettings
+                )
+                if self.showTitles:
+                    textProperties = self.getTextProperties()
+                    textProperties["fillColor"] = self.getColor("insert")
+                    textProperties["verticalAlignment"] = "top"
+                    layer.appendTextLineSublayer(
+                        text="Insert Point",
+                        position=point,
+                        **textProperties
+                    )
+
+    # Points
+    # ------
+
+    def _visualizeRemovePoints(self, layer, points, title):
+        if points:
+            imageSettings = self.getRemoveSymbolSettings()
+            for point in points:
+                symbolLayer = layer.appendSymbolSublayer(
+                    position=point,
+                    size=imageSettings["size"],
+                    imageSettings=imageSettings
+                )
+                if self.showTitles:
+                    textProperties = self.getTextProperties()
+                    textProperties["fillColor"] = self.getColor("remove")
+                    textProperties["verticalAlignment"] = "top"
+                    layer.appendTextLineSublayer(
+                        text=title,
+                        position=point,
+                        **textProperties
+                    )
+
+    def visualize_strayPoints(self, contour, layer, data):
+        layer.clearSublayers()
+        if data:
+            self._visualizeRemovePoints(layer, [data], "Stray Point")
+
+    def visualize_unnecessaryPoints(self, contour, layer, data):
+        layer.clearSublayers()
+        self._visualizeRemovePoints(layer, data, "Unnecessary Point")
+
+    def visualize_overlappingPoints(self, contour, layer, data):
+        layer.clearSublayers()
+        self._visualizeRemovePoints(layer, data, "Overlapping Point")
+
 # -------
 # Symbols
 # -------
 
 from merz.tools.drawingTools import NSImageDrawingTools
+
+def editorInsertSymbolFactory(size, strokeColor, strokeWidth):
+    width, height = size
+    cX = width / 2
+    cY = height / 2
+    bot = NSImageDrawingTools((width, height))
+    pen = bot.BezierPath()
+    pen.moveTo((0, cY))
+    pen.lineTo((width, cY))
+    pen.endPath()
+    pen.moveTo((cX, height))
+    pen.lineTo((cX, 0))
+    pen.endPath()
+    bot.stroke(*strokeColor)
+    bot.strokeWidth(strokeWidth)
+    bot.drawPath(pen)
+    return bot.getImage()
+
+merz.SymbolImageVendor.registerImageFactory("GlyphNanny.editorInsert", editorInsertSymbolFactory)
 
 def editorRemoveSymbolFactory(size, strokeColor, strokeWidth):
     width, height = size

@@ -22,6 +22,13 @@ def convertBoundsToRect(bounds):
     h = yMax - yMin
     return (x, y, w, h)
 
+def getOnCurves(contour):
+    points = set()
+    for segment in contour:
+        pt = segment.onCurve
+        points.add((pt.x, pt.y))
+    return points
+
 # ------------
 # Calculations
 # ------------
@@ -106,10 +113,3 @@ def calculateLineThroughPoint(pt, angle):
     x2 = math.cos(angle) * length + pt[0]
     y2 = math.sin(angle) * length + pt[1]
     return (x1, y1), (x2, y2)
-
-# def _getOnCurves(contour):
-#     points = set()
-#     for segement in contour:
-#         pt = segement.onCurve
-#         points.add((pt.x, pt.y))
-#     return points
