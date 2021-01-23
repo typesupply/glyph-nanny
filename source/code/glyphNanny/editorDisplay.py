@@ -1,5 +1,7 @@
 import merz
 from mojo import events
+from mojo.UI import getDefault
+import defaults
 from tests.registry import testRegistry
 from tests.tools import (
     convertBoundsToRect,
@@ -7,16 +9,15 @@ from tests.tools import (
 )
 from tests.wrappers import *
 
-lineStrokeWidth = 1
-highlightStrokeWidth = 4
-
 class GlyphNannyEditorDisplayManager:
 
     def __init__(self, window=None):
+        self.loadUserDefaults()
         events.addObserver(self, "glyphWindowWillOpenCallback", "glyphWindowWillOpen")
         events.addObserver(self, "viewDidChangeGlyphCallback", "viewDidChangeGlyph")
+        events.addObserver(self, "preferencesChangedCallback", "preferencesChanged")
         self.showTitles = True
-        self.inactiveTests = []
+        self.inactiveTests = set()
 
         self.glyphInfoLevelTests = []
         self.metricsLevelTests = []
@@ -55,6 +56,7 @@ class GlyphNannyEditorDisplayManager:
         self.container.clearAnimation()
         events.removeObserver(self, "glyphWindowWillOpen")
         events.removeObserver(self, "viewDidChangeGlyph")
+        events.removeObserver(self, "preferencesChanged")
         self.stopObservingGlyph()
 
     # -----------------
@@ -69,6 +71,28 @@ class GlyphNannyEditorDisplayManager:
     def viewDidChangeGlyphCallback(self, notification):
         glyph = notification["glyph"]
         self.setGlyph(glyph)
+
+    def preferencesChangedCallback(self, notification):
+        self.loadUserDefaults()
+        self.updateLayers(forceUpdate=True)
+
+    # -------------
+    # User Defaults
+    # -------------
+
+    def loadUserDefaults(self):
+        self.lineWidthRegular = defaults.getLineWidthRegular()
+        self.lineWidthHighlight = defaults.getLineWidthHighlight()
+        self.colorBackground = getDefault("glyphViewBackgroundColor")
+        self.colorReview = defaults.getColorReview()
+        self.colorRemove = defaults.getColorRemove()
+        self.colorInsert = defaults.getColorInsert()
+        self.colorInform = defaults.getColorInform()
+        self.inactiveTests = set()
+        for testIdentifier in testRegistry.keys():
+            state = defaults.getTestState(testIdentifier)
+            if not state:
+                self.inactiveTests.add(testIdentifier)
 
     # -----
     # Glyph
@@ -154,7 +178,7 @@ class GlyphNannyEditorDisplayManager:
             layer.setInfoValue("representedValue", None)
         # info
         textProperties = self.getTextProperties()
-        textProperties["fillColor"] = self.getColor("inform")
+        textProperties["fillColor"] = self.colorInform
         textProperties["horizontalAlignment"] = "left"
         textProperties["verticalAlignment"] = "top"
         layer = self.container.appendTextLineSublayer(
@@ -230,8 +254,13 @@ class GlyphNannyEditorDisplayManager:
 
     def _updateGlyphInfoLayer(self):
         layer = self.container.getSublayer("glyphInfo")
+        if self.glyph is None:
+            layer.clearSublayers()
+            return
         glyphInfoData = {}
         for testIdentifier in self.glyphInfoLevelTests:
+            if testIdentifier in self.inactiveTests:
+                continue
             representationName = testRegistry[testIdentifier]["representationName"]
             glyphInfoData[testIdentifier] = self.glyph.getRepresentation(representationName)
         representedValue = layer.getInfoValue("representedValue")
@@ -247,13 +276,15 @@ class GlyphNannyEditorDisplayManager:
         layer = self.container.getSublayer("metrics")
         metricsData = {}
         for testIdentifier in self.metricsLevelTests:
+            if testIdentifier in self.inactiveTests:
+                continue
             representationName = testRegistry[testIdentifier]["representationName"]
             metricsData[testIdentifier] = self.glyph.getRepresentation(representationName)
         representedValue = layer.getInfoValue("representedValue")
         if metricsData != representedValue:
             layer.setInfoValue("representedValue", metricsData)
             arrowSettings = self.getArrowSymbolSettings()
-            arrowSettings["strokeColor"] = self.getColor("review")
+            arrowSettings["strokeColor"] = self.colorReview
             y = 0
             offset = -20
             for testIdentifier, data in sorted(metricsData.items()):
@@ -267,14 +298,14 @@ class GlyphNannyEditorDisplayManager:
                     layer.appendLineSublayer(
                         startPoint=(0, y),
                         endPoint=(width, y),
-                        strokeColor=self.getColor("review"),
-                        strokeWidth=lineStrokeWidth,
+                        strokeColor=self.colorReview,
+                        strokeWidth=self.lineWidthRegular,
                         startSymbol=arrowSettings,
                         endSymbol=arrowSettings
                     )
                     if self.showTitles:
                         textProperties = self.getTextProperties()
-                        textProperties["fillColor"] = self.getColor("review")
+                        textProperties["fillColor"] = self.colorReview
                         textProperties["horizontalAlignment"] = "center"
                         layer.appendTextLineSublayer(
                             position=(width / 2, y),
@@ -292,13 +323,13 @@ class GlyphNannyEditorDisplayManager:
                         layer.appendLineSublayer(
                             startPoint=(0, y),
                             endPoint=(left, y),
-                            strokeColor=self.getColor("review"),
-                            strokeWidth=lineStrokeWidth,
+                            strokeColor=self.colorReview,
+                            strokeWidth=self.lineWidthRegular,
                             startSymbol=arrowSettings
                         )
                         if self.showTitles:
                             textProperties = self.getTextProperties()
-                            textProperties["fillColor"] = self.getColor("review")
+                            textProperties["fillColor"] = self.colorReview
                             textProperties["horizontalAlignment"] = "left"
                             layer.appendTextLineSublayer(
                                 position=(left, y),
@@ -309,13 +340,13 @@ class GlyphNannyEditorDisplayManager:
                         layer.appendLineSublayer(
                             startPoint=(right, y),
                             endPoint=(width, y),
-                            strokeColor=self.getColor("review"),
-                            strokeWidth=lineStrokeWidth,
+                            strokeColor=self.colorReview,
+                            strokeWidth=self.lineWidthRegular,
                             endSymbol=arrowSettings
                         )
                         if self.showTitles:
                             textProperties = self.getTextProperties()
-                            textProperties["fillColor"] = self.getColor("review")
+                            textProperties["fillColor"] = self.colorReview
                             textProperties["horizontalAlignment"] = "right"
                             layer.appendTextLineSublayer(
                                 position=(right, y),
@@ -325,6 +356,9 @@ class GlyphNannyEditorDisplayManager:
                     y += offset
 
     def _updateLayer(self, layer, obj, testIdentifier, forceUpdate):
+        if testIdentifier in self.inactiveTests:
+            testLayer.clearSublayers()
+            return
         representationName = layer.getInfoValue("representationName")
         representedValue = layer.getInfoValue("representedValue")
         newValue = obj.getRepresentation(representationName)
@@ -349,16 +383,6 @@ class GlyphNannyEditorDisplayManager:
     # Visualization
     # -------------
 
-    def getColor(self, color):
-        replacements = dict(
-            background=(1, 1, 1, 1),
-            inform=(0, 0, 0.7, 0.3),
-            review=(1, 0.7, 0, 0.7),
-            remove=(1, 0, 0, 0.5),
-            insert=(0, 0.8, 0, 0.75)
-        )
-        return replacements[color]
-
     def getTextProperties(self):
         properties = dict(
             font="system",
@@ -367,7 +391,7 @@ class GlyphNannyEditorDisplayManager:
             horizontalAlignment="center",
             verticalAlignment="center",
             fillColor=(0, 0, 0, 1),
-            backgroundColor=self.getColor("background"),
+            backgroundColor=self.colorBackground,
             cornerRadius=5,
             padding=(5, 2)
         )
@@ -377,7 +401,7 @@ class GlyphNannyEditorDisplayManager:
         settings = dict(
             name="GlyphNanny.editorArrow",
             size=(30, 20),
-            strokeColor=self.getColor("review"),
+            strokeColor=self.colorReview,
             strokeWidth=1
         )
         return settings
@@ -386,7 +410,7 @@ class GlyphNannyEditorDisplayManager:
         settings = dict(
             name="GlyphNanny.editorInsert",
             size=(17, 17),
-            strokeColor=self.getColor("insert"),
+            strokeColor=self.colorInsert,
             strokeWidth=1
         )
         return settings
@@ -395,7 +419,7 @@ class GlyphNannyEditorDisplayManager:
         settings = dict(
             name="GlyphNanny.editorRemove",
             size=(17, 17),
-            strokeColor=self.getColor("remove"),
+            strokeColor=self.colorRemove,
             strokeWidth=1
         )
         return settings
@@ -411,14 +435,14 @@ class GlyphNannyEditorDisplayManager:
             return
         arrowSettings = self.getArrowSymbolSettings()
         textProperties = self.getTextProperties()
-        textProperties["fillColor"] = self.getColor("review")
+        textProperties["fillColor"] = self.colorReview
         for y1, y2, xPositions in hProblems:
             xM = sum(xPositions) / len(xPositions)
             lineLayer = layer.appendLineSublayer(
                 startPoint=(xM, y1),
                 endPoint=(xM, y2),
-                strokeColor=self.getColor("review"),
-                strokeWidth=lineStrokeWidth,
+                strokeColor=self.colorReview,
+                strokeWidth=self.lineWidthRegular,
                 startSymbol=arrowSettings,
                 endSymbol=arrowSettings
             )
@@ -434,8 +458,8 @@ class GlyphNannyEditorDisplayManager:
             lineLayer = layer.appendLineSublayer(
                 startPoint=(x1, yM),
                 endPoint=(x2, yM),
-                strokeColor=self.getColor("review"),
-                strokeWidth=lineStrokeWidth,
+                strokeColor=self.colorReview,
+                strokeWidth=self.lineWidthRegular,
                 startSymbol=arrowSettings,
                 endSymbol=arrowSettings
             )
@@ -456,11 +480,11 @@ class GlyphNannyEditorDisplayManager:
                 pathLayer = layer.appendPathSublayer(
                     path=path,
                     fillColor=None,
-                    strokeColor=self.getColor("remove"),
-                    strokeWidth=highlightStrokeWidth
+                    strokeColor=self.colorRemove,
+                    strokeWidth=self.lineWidthHighlight
                 )
                 textProperties = self.getTextProperties()
-                textProperties["fillColor"] = self.getColor("remove")
+                textProperties["fillColor"] = self.colorRemove
                 textProperties["verticalAlignment"] = "top"
                 xMin, yMin, xMax, yMax = contour.bounds
                 x, y = calculateMidpoint((xMin, yMin), (xMax, yMax))
@@ -479,11 +503,11 @@ class GlyphNannyEditorDisplayManager:
                 pathLayer = layer.appendPathSublayer(
                     path=path,
                     fillColor=None,
-                    strokeColor=self.getColor("remove"),
-                    strokeWidth=highlightStrokeWidth
+                    strokeColor=self.colorRemove,
+                    strokeWidth=self.lineWidthHighlight
                 )
                 textProperties = self.getTextProperties()
-                textProperties["fillColor"] = self.getColor("remove")
+                textProperties["fillColor"] = self.colorRemove
                 textProperties["verticalAlignment"] = "top"
                 xMin, yMin, xMax, yMax = component.bounds
                 x, y = calculateMidpoint((xMin, yMin), (xMax, yMax))
@@ -503,12 +527,12 @@ class GlyphNannyEditorDisplayManager:
             pathLayer = layer.appendPathSublayer(
                 path=contour.getRepresentation("merz.CGPath"),
                 fillColor=None,
-                strokeWidth=highlightStrokeWidth,
-                strokeColor=self.getColor("remove")
+                strokeWidth=self.lineWidthHighlight,
+                strokeColor=self.colorRemove
             )
             if self.showTitles:
                 textProperties = self.getTextProperties()
-                textProperties["fillColor"] = self.getColor("remove")
+                textProperties["fillColor"] = self.colorRemove
                 textProperties["verticalAlignment"] = "top"
                 xMin, yMin, xMax, yMax = contour.bounds
                 x, y = calculateMidpoint((xMin, yMin), (xMax, yMax))
@@ -522,18 +546,18 @@ class GlyphNannyEditorDisplayManager:
         layer.clearSublayers()
         if data:
             arrowSymbolSettings = self.getArrowSymbolSettings()
-            arrowSymbolSettings["strokeColor"] = self.getColor("insert")
+            arrowSymbolSettings["strokeColor"] = self.colorInsert
             pt1, pt2 = data
             lineLayer = layer.appendLineSublayer(
                 startPoint=pt1,
                 endPoint=pt2,
-                strokeWidth=lineStrokeWidth,
-                strokeColor=self.getColor("insert"),
+                strokeWidth=self.lineWidthRegular,
+                strokeColor=self.colorInsert,
                 startSymbol=arrowSymbolSettings
             )
             if self.showTitles:
                 textProperties = self.getTextProperties()
-                textProperties["fillColor"] = self.getColor("insert")
+                textProperties["fillColor"] = self.colorInsert
                 x, y = calculateMidpoint(pt1, pt2)
                 lineLayer.appendTextLineSublayer(
                     text="Open Contour",
@@ -545,7 +569,7 @@ class GlyphNannyEditorDisplayManager:
         layer.clearSublayers()
         if data:
             arrowSettings = self.getArrowSymbolSettings()
-            arrowSettings["strokeColor"] = self.getColor("review")
+            arrowSettings["strokeColor"] = self.colorReview
             for toCurve, fromCurve in data:
                 to3, to2, to1, to0 = toCurve
                 from0, from1, from2, from3 = fromCurve
@@ -553,38 +577,38 @@ class GlyphNannyEditorDisplayManager:
                     layer.appendLineSublayer(
                         startPoint=from0,
                         endPoint=to0,
-                        strokeColor=self.getColor("review"),
-                        strokeWidth=lineStrokeWidth,
+                        strokeColor=self.colorReview,
+                        strokeWidth=self.lineWidthRegular,
                         endSymbol=arrowSettings
                     )
                 if to1 != from1:
                     layer.appendLineSublayer(
                         startPoint=from1,
                         endPoint=to1,
-                        strokeColor=self.getColor("review"),
-                        strokeWidth=lineStrokeWidth,
+                        strokeColor=self.colorReview,
+                        strokeWidth=self.lineWidthRegular,
                         endSymbol=arrowSettings
                     )
                 if to2 != from2:
                     layer.appendLineSublayer(
                         startPoint=from2,
                         endPoint=to2,
-                        strokeColor=self.getColor("review"),
-                        strokeWidth=lineStrokeWidth,
+                        strokeColor=self.colorReview,
+                        strokeWidth=self.lineWidthRegular,
                         endSymbol=arrowSettings
                     )
                 if to3 != from3:
                     layer.appendLineSublayer(
                         startPoint=from3,
                         endPoint=to3,
-                        strokeColor=self.getColor("review"),
-                        strokeWidth=lineStrokeWidth,
+                        strokeColor=self.colorReview,
+                        strokeWidth=self.lineWidthRegular,
                         endSymbol=arrowSettings
                     )
                 curvePath = layer.appendPathSublayer(
                     fillColor=None,
-                    strokeColor=self.getColor("review"),
-                    strokeWidth=lineStrokeWidth
+                    strokeColor=self.colorReview,
+                    strokeWidth=self.lineWidthRegular
                 )
                 pen = curvePath.getPen()
                 pen.moveTo(to3)
@@ -600,12 +624,12 @@ class GlyphNannyEditorDisplayManager:
             lineLayer = layer.appendLineSublayer(
                 startPoint=pt1,
                 endPoint=pt2,
-                strokeWidth=highlightStrokeWidth,
-                strokeColor=self.getColor("review")
+                strokeWidth=self.lineWidthHighlight,
+                strokeColor=self.colorReview
             )
             if self.showTitles:
                 textProperties = self.getTextProperties()
-                textProperties["fillColor"] = self.getColor("review")
+                textProperties["fillColor"] = self.colorReview
                 x, y = calculateMidpoint(pt1, pt2)
                 lineLayer.appendTextLineSublayer(
                     text="Slight Angle",
@@ -621,8 +645,8 @@ class GlyphNannyEditorDisplayManager:
                 lineLayer = layer.appendLineSublayer(
                     startPoint=(x, y),
                     endPoint=(x, verticalMetric),
-                    strokeWidth=highlightStrokeWidth,
-                    strokeColor=self.getColor("review"),
+                    strokeWidth=self.lineWidthHighlight,
+                    strokeColor=self.colorReview,
                     endSymbol=arrowSymbolSettings
                 )
 
@@ -631,8 +655,8 @@ class GlyphNannyEditorDisplayManager:
         for pt1, pt2, pt3 in data:
             pathLayer = layer.appendPathSublayer(
                 fillColor=None,
-                strokeWidth=highlightStrokeWidth,
-                strokeColor=self.getColor("review")
+                strokeWidth=self.lineWidthHighlight,
+                strokeColor=self.colorReview
             )
             pen = pathLayer.getPen()
             pen.moveTo(pt1)
@@ -641,7 +665,7 @@ class GlyphNannyEditorDisplayManager:
             pen.endPath()
             if self.showTitles:
                 textProperties = self.getTextProperties()
-                textProperties["fillColor"] = self.getColor("review")
+                textProperties["fillColor"] = self.colorReview
                 x, y = calculateMidpoint(pt1, pt3)
                 pathLayer.appendTextLineSublayer(
                     text="Unsmooth Smooth",
@@ -654,8 +678,8 @@ class GlyphNannyEditorDisplayManager:
         for pt1, pt2, pt3, pt4 in data:
             pathLayer = layer.appendPathSublayer(
                 fillColor=None,
-                strokeWidth=highlightStrokeWidth,
-                strokeColor=self.getColor("review")
+                strokeWidth=self.lineWidthHighlight,
+                strokeColor=self.colorReview
             )
             pen = pathLayer.getPen()
             pen.moveTo(pt1)
@@ -663,7 +687,7 @@ class GlyphNannyEditorDisplayManager:
             pen.endPath()
             if self.showTitles:
                 textProperties = self.getTextProperties()
-                textProperties["fillColor"] = self.getColor("review")
+                textProperties["fillColor"] = self.colorReview
                 x, y = calculateMidpoint(pt1, pt4)
                 pathLayer.appendTextLineSublayer(
                     text="Complex Curve",
@@ -678,8 +702,8 @@ class GlyphNannyEditorDisplayManager:
             pt5 = handleData["intersection"]
             pathLayer = layer.appendPathSublayer(
                 fillColor=None,
-                strokeWidth=highlightStrokeWidth,
-                strokeColor=self.getColor("review")
+                strokeWidth=self.lineWidthHighlight,
+                strokeColor=self.colorReview
             )
             pen = pathLayer.getPen()
             pen.moveTo(pt1)
@@ -694,12 +718,12 @@ class GlyphNannyEditorDisplayManager:
                 imageSettings=dict(
                     name="oval",
                     size=(10, 10),
-                    fillColor=self.getColor("review")
+                    fillColor=self.colorReview
                 )
             )
             if self.showTitles:
                 textProperties = self.getTextProperties()
-                textProperties["fillColor"] = self.getColor("review")
+                textProperties["fillColor"] = self.colorReview
                 x, y = calculateMidpoint(pt1, pt4)
                 pathLayer.appendTextLineSublayer(
                     text="Crossed Handles",
@@ -714,14 +738,14 @@ class GlyphNannyEditorDisplayManager:
             lineLayer = layer.appendLineSublayer(
                 startPoint=pt1,
                 endPoint=pt2,
-                strokeWidth=highlightStrokeWidth,
-                strokeColor=self.getColor("remove"),
+                strokeWidth=self.lineWidthHighlight,
+                strokeColor=self.colorRemove,
                 startSymbol=symbolSettings,
                 endSymbol=symbolSettings
             )
             if self.showTitles:
                 textProperties = self.getTextProperties()
-                textProperties["fillColor"] = self.getColor("remove")
+                textProperties["fillColor"] = self.colorRemove
                 x, y = calculateMidpoint(pt1, pt2)
                 lineLayer.appendTextLineSublayer(
                     text="Unnecessary Handles",
@@ -733,7 +757,7 @@ class GlyphNannyEditorDisplayManager:
         layer.clearSublayers()
         for off1, off2, shape1, shape2 in data:
             pathLayer = layer.appendPathSublayer(
-                fillColor=self.getColor("review")
+                fillColor=self.colorReview
             )
             pen = pathLayer.getPen()
             for shape in (shape1, shape2):
@@ -746,7 +770,7 @@ class GlyphNannyEditorDisplayManager:
                 pen.endPath()
             if self.showTitles:
                 textProperties = self.getTextProperties()
-                textProperties["fillColor"] = self.getColor("review")
+                textProperties["fillColor"] = self.colorReview
                 x, y = calculateMidpoint(off1, off2)
                 pathLayer.appendTextLineSublayer(
                     text="Uneven Handles",
@@ -766,7 +790,7 @@ class GlyphNannyEditorDisplayManager:
                 )
                 if self.showTitles:
                     textProperties = self.getTextProperties()
-                    textProperties["fillColor"] = self.getColor("insert")
+                    textProperties["fillColor"] = self.colorInsert
                     textProperties["verticalAlignment"] = "top"
                     layer.appendTextLineSublayer(
                         text="Insert Point",
@@ -788,7 +812,7 @@ class GlyphNannyEditorDisplayManager:
                 )
                 if self.showTitles:
                     textProperties = self.getTextProperties()
-                    textProperties["fillColor"] = self.getColor("remove")
+                    textProperties["fillColor"] = self.colorRemove
                     textProperties["verticalAlignment"] = "top"
                     layer.appendTextLineSublayer(
                         text=title,

@@ -5,8 +5,6 @@ from mojo.extensions import (
     setExtensionDefault
 )
 
-
-
 defaultKeyStub = "com.typesupply.GlyphNanny2."
 defaults = {
     defaultKeyStub + "displayLiveReport" : True,
@@ -14,13 +12,14 @@ defaults = {
     defaultKeyStub + "colorInform" : (0, 0, 0.7, 0.3),
     defaultKeyStub + "colorReview" : (0, 1, 0, 0.75),
     defaultKeyStub + "colorRemove" : (1, 0, 0, 0.5),
-    defaultKeyStub + "colorInsert" : (1, 0.7, 0, 0.7)
+    defaultKeyStub + "colorInsert" : (1, 0.7, 0, 0.7),
+    defaultKeyStub + "lineWidthRegular" : 1,
+    defaultKeyStub + "lineWidthHighlight" : 4,
 }
 for testIdentifier in testRegistry.keys():
     defaults[defaultKeyStub + "testState." + testIdentifier] = True
 
 registerExtensionDefaults(defaults)
-
 
 # -----
 # Tests
@@ -87,3 +86,23 @@ def getColorInsert():
 
 def setColorInsert(value):
     setExtensionDefault(defaultKeyStub + "colorInsert", value)
+
+# -----------
+# Line Widths
+# -----------
+
+# Line: Regular
+
+def getLineWidthRegular():
+    return getExtensionDefault(defaultKeyStub + "lineWidthRegular")
+
+def setLineWidthRegular(value):
+    setExtensionDefault(defaultKeyStub + "lineWidthRegular", value)
+
+# Line: Highlight
+
+def getLineWidthHighlight():
+    return getExtensionDefault(defaultKeyStub + "lineWidthHighlight")
+
+def setLineWidthHighlight(value):
+    setExtensionDefault(defaultKeyStub + "lineWidthHighlight", value)
