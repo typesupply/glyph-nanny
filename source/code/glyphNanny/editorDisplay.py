@@ -13,9 +13,6 @@ class GlyphNannyEditorDisplayManager:
 
     def __init__(self, window=None):
         self.loadUserDefaults()
-        events.addObserver(self, "glyphWindowWillOpenCallback", "glyphWindowWillOpen")
-        events.addObserver(self, "viewDidChangeGlyphCallback", "viewDidChangeGlyph")
-        events.addObserver(self, "preferencesChangedCallback", "preferencesChanged")
         self.showTitles = True
         self.inactiveTests = set()
 
@@ -50,6 +47,10 @@ class GlyphNannyEditorDisplayManager:
         if window is not None:
             self.buildContainer(window)
             self.setGlyph(wrapGlyph(window.getGlyph()))
+        events.addObserver(self, "glyphWindowWillOpenCallback", "glyphWindowWillOpen")
+        events.addObserver(self, "viewDidChangeGlyphCallback", "viewDidChangeGlyph")
+        events.addObserver(self, "preferencesChangedCallback", "preferencesChanged")
+
 
     def destroy(self):
         self.container.clearSublayers()
@@ -102,8 +103,8 @@ class GlyphNannyEditorDisplayManager:
 
     def setGlyph(self, glyph):
         self.stopObservingGlyph()
-        self.glyph = glyph
         self.destroyContourContainers()
+        self.glyph = glyph
         self.buildContourContainers()
         self.updateLayers()
         self.startObservingGlyph()
@@ -232,9 +233,8 @@ class GlyphNannyEditorDisplayManager:
         """
         Destroy contour container for a specific contour.
         """
-        contourContainer = self.contourContainers[contour]
+        contourContainer = self.contourContainers.pop(contour)
         self.container.removeSublayer(contourContainer)
-        del self.contourContainers[contour]
 
     def updateLayers(self, forceUpdate=False):
         # info
@@ -244,13 +244,17 @@ class GlyphNannyEditorDisplayManager:
         # glyph
         for testIdentifier in self.glyphLevelTests:
             testLayer = self.container.getSublayer(testIdentifier)
+            if self.glyph is None:
+                testLayer.clearSublayers()
+                continue
             self._updateLayer(testLayer, self.glyph, testIdentifier, forceUpdate)
         # contour, segment, points
-        for contour in self.glyph.contours:
-            contourContainer = self.contourContainers[contour]
-            for testIdentifier in self.contourContainerTestIdentifiers:
-                testLayer = contourContainer.getSublayer(testIdentifier)
-                self._updateLayer(testLayer, contour, testIdentifier, forceUpdate)
+        if self.glyph is not None:
+            for contour in self.glyph.contours:
+                contourContainer = self.contourContainers[contour]
+                for testIdentifier in self.contourContainerTestIdentifiers:
+                    testLayer = contourContainer.getSublayer(testIdentifier)
+                    self._updateLayer(testLayer, contour, testIdentifier, forceUpdate)
 
     def _updateGlyphInfoLayer(self):
         layer = self.container.getSublayer("glyphInfo")
@@ -274,6 +278,9 @@ class GlyphNannyEditorDisplayManager:
 
     def _updateMetricsLayer(self):
         layer = self.container.getSublayer("metrics")
+        if self.glyph is None:
+            layer.clearSublayers()
+            return
         metricsData = {}
         for testIdentifier in self.metricsLevelTests:
             if testIdentifier in self.inactiveTests:
@@ -282,6 +289,7 @@ class GlyphNannyEditorDisplayManager:
             metricsData[testIdentifier] = self.glyph.getRepresentation(representationName)
         representedValue = layer.getInfoValue("representedValue")
         if metricsData != representedValue:
+            layer.clearSublayers()
             layer.setInfoValue("representedValue", metricsData)
             arrowSettings = self.getArrowSymbolSettings()
             arrowSettings["strokeColor"] = self.colorReview
@@ -357,7 +365,7 @@ class GlyphNannyEditorDisplayManager:
 
     def _updateLayer(self, layer, obj, testIdentifier, forceUpdate):
         if testIdentifier in self.inactiveTests:
-            testLayer.clearSublayers()
+            layer.clearSublayers()
             return
         representationName = layer.getInfoValue("representationName")
         representedValue = layer.getInfoValue("representedValue")

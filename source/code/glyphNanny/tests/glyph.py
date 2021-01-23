@@ -35,13 +35,8 @@ def testStemWidths(glyph):
     if vStems:
         vProblems = _findStemProblems(glyph, vStems, "v")
     # report
-    if hProblems or vProblems:
-        stemProblems = dict(
-            horizontal=hProblems,
-            vertical=vProblems
-        )
-        return stemProblems
-    return None
+    data = dict(horizontal=hProblems, vertical=vProblems)
+    return data
 
 def _findStemProblems(glyph, targetStems, stemDirection):
     stems = set()
