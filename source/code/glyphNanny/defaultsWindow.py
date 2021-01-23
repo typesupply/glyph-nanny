@@ -87,21 +87,30 @@ class GlyphNannyPrefsWindow:
 
         self.w.open()
 
+    def xxxNotify(self):
+        # XXX this will be replaced by something in mojo
+        from lib.tools.notifications import PostNotification
+        PostNotification("doodle.preferencesChanged")
+
     def displayLiveReportCheckboxCallback(self, sender):
         defaults.setDisplayLiveReport(sender.get())
+        self.xxxNotify()
 
     def displayTitlesCheckboxCallback(self, sender):
         defaults.setDisplayTitles(sender.get())
+        self.xxxNotify()
 
     def colorGroupCallback(self, sender):
         setMethod = self.colorSetters[sender]
         value = sender.get()
         setMethod(value)
+        self.xxxNotify()
 
     def testStateCallback(self, sender):
         states = sender.get()
         for testIdentifier, state in states.items():
             defaults.setTestState(testIdentifier, state)
+        self.xxxNotify()
 
 
 class TestTabs(vanilla.Group):

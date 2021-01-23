@@ -9,9 +9,51 @@ from tests.tools import (
 )
 from tests.wrappers import *
 
+class TemporaryManagerSpawner:
+
+    # XXX this will be replaced by something in mojo
+
+    def __init__(self):
+        events.addObserver(self, "glyphWindowWillOpenCallback", "glyphWindowWillOpen")
+        events.addObserver(self, "glyphWindowWillCloseCallback", "glyphWindowWillClose")
+        events.addObserver(self, "viewDidChangeGlyphCallback", "viewDidChangeGlyph")
+        self.windows = {}
+
+    def destroy(self):
+        events.removeObserver(self, "glyphWindowWillOpen")
+        events.removeObserver(self, "glyphWindowWillClose")
+        events.removeObserver(self, "viewDidChangeGlyph")
+
+    def glyphWindowWillOpenCallback(self, notification):
+        window = notification["window"]
+        obj = GlyphNannyEditorDisplayManager(window)
+        self.windows[window] = obj
+        glyph = window.getGlyph()
+        if glyph is not None:
+            glyph = wrapGlyph(glyph)
+        obj.setGlyph(glyph)
+
+    def glyphWindowWillCloseCallback(self, notification):
+        window = notification["window"]
+        obj = self.windows.pop(window)
+        obj.windowClosed()
+
+    def viewDidChangeGlyphCallback(self, notification):
+        view = notification["view"]
+        glyph = notification["glyph"]
+        if glyph is not None:
+            glyph = wrapGlyph(glyph)
+        for window, obj in self.windows.items():
+            if window.getGlyphView() == view:
+                obj.setGlyph(glyph)
+                break
+
+
+
 class GlyphNannyEditorDisplayManager:
 
-    def __init__(self, window=None):
+    def __init__(self, window):
+        events.addObserver(self, "preferencesChangedCallback", "preferencesChanged")
         self.loadUserDefaults()
         self.showTitles = True
         self.inactiveTests = set()
@@ -43,21 +85,13 @@ class GlyphNannyEditorDisplayManager:
           + self.segmentLevelTests
           + self.pointLevelTests
         )
+        self.buildContainer(window)
+        self.setGlyph(wrapGlyph(window.getGlyph()))
 
-        if window is not None:
-            self.buildContainer(window)
-            self.setGlyph(wrapGlyph(window.getGlyph()))
-        events.addObserver(self, "glyphWindowWillOpenCallback", "glyphWindowWillOpen")
-        events.addObserver(self, "viewDidChangeGlyphCallback", "viewDidChangeGlyph")
-        events.addObserver(self, "preferencesChangedCallback", "preferencesChanged")
-
-
-    def destroy(self):
+    def windowClosed(self):
+        events.removeObserver(self, "preferencesChanged")
         self.container.clearSublayers()
         self.container.clearAnimation()
-        events.removeObserver(self, "glyphWindowWillOpen")
-        events.removeObserver(self, "viewDidChangeGlyph")
-        events.removeObserver(self, "preferencesChanged")
         self.stopObservingGlyph()
 
     # -----------------
@@ -911,7 +945,7 @@ from mojo.UI import CurrentGlyphWindow
 class Test(BaseWindowController):
 
     def __init__(self):
-        self.manager = GlyphNannyEditorDisplayManager(CurrentGlyphWindow())
+        self.manager = TemporaryManagerSpawner()
         self.w = vanilla.FloatingWindow((200, 200))
         self.setUpBaseWindowBehavior()
         self.w.open()
