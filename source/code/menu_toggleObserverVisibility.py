@@ -1,3 +1,4 @@
-from glyphNanny import toggleObserverVisibility
+from glyphNanny import defaults
 
-toggleObserverVisibility()
+state = defaults.getDisplayLiveReport()
+defaults.setDisplayLiveReport(not state)

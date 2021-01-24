@@ -10,7 +10,7 @@ metrics = dict(
 )
 
 
-class GlyphNannyPrefsWindow:
+class GlyphNannyDefaultsWindow:
 
     def __init__(self):
         self.w = vanilla.Window(
@@ -227,4 +227,4 @@ class ColorGroup(vanilla.Group):
 
 
 if __name__ == "__main__":
-    GlyphNannyPrefsWindow()
+    GlyphNannyDefaultsWindow()
