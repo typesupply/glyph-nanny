@@ -346,15 +346,14 @@ class GlyphNannyEditorDisplayManager:
                         startSymbol=arrowSettings,
                         endSymbol=arrowSettings
                     )
-                    if self.showTitles:
-                        textProperties = self.getTextProperties()
-                        textProperties["fillColor"] = self.colorReview
-                        textProperties["horizontalAlignment"] = "center"
-                        layer.appendTextLineSublayer(
-                            position=(width / 2, y),
-                            text=message,
-                            **textProperties
-                        )
+                    textProperties = self.getTextProperties()
+                    textProperties["fillColor"] = self.colorReview
+                    textProperties["horizontalAlignment"] = "center"
+                    layer.appendTextLineSublayer(
+                        position=(width / 2, y),
+                        text=message,
+                        **textProperties
+                    )
                     y += offset
                 else:
                     left = data["left"]
@@ -370,15 +369,14 @@ class GlyphNannyEditorDisplayManager:
                             strokeWidth=self.lineWidthRegular,
                             startSymbol=arrowSettings
                         )
-                        if self.showTitles:
-                            textProperties = self.getTextProperties()
-                            textProperties["fillColor"] = self.colorReview
-                            textProperties["horizontalAlignment"] = "left"
-                            layer.appendTextLineSublayer(
-                                position=(left, y),
-                                text=leftMessage,
-                                **textProperties
-                            )
+                        textProperties = self.getTextProperties()
+                        textProperties["fillColor"] = self.colorReview
+                        textProperties["horizontalAlignment"] = "left"
+                        layer.appendTextLineSublayer(
+                            position=(left, y),
+                            text=leftMessage,
+                            **textProperties
+                        )
                     if rightMessage:
                         layer.appendLineSublayer(
                             startPoint=(right, y),
@@ -387,15 +385,14 @@ class GlyphNannyEditorDisplayManager:
                             strokeWidth=self.lineWidthRegular,
                             endSymbol=arrowSettings
                         )
-                        if self.showTitles:
-                            textProperties = self.getTextProperties()
-                            textProperties["fillColor"] = self.colorReview
-                            textProperties["horizontalAlignment"] = "right"
-                            layer.appendTextLineSublayer(
-                                position=(right, y),
-                                text=rightMessage,
-                                **textProperties
-                            )
+                        textProperties = self.getTextProperties()
+                        textProperties["fillColor"] = self.colorReview
+                        textProperties["horizontalAlignment"] = "right"
+                        layer.appendTextLineSublayer(
+                            position=(right, y),
+                            text=rightMessage,
+                            **textProperties
+                        )
                     y += offset
 
     def _updateLayer(self, layer, obj, testIdentifier, forceUpdate):
