@@ -1,0 +1,4 @@
+from mojo.roboFont import OpenWindow
+from glyphNanny.defaultsWindow import GlyphNannyDefaultsWindow
+
+OpenWindow(GlyphNannyDefaultsWindow)
