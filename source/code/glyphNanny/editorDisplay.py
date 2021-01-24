@@ -667,7 +667,7 @@ class GlyphNannyEditorDisplayManager:
     # Segment
     # -------
 
-    def visualize_straightLines(self, contour, layer, data):
+    def visualize_angleNearMiss(self, contour, layer, data):
         layer.clearSublayers()
         for pt1, pt2 in data:
             lineLayer = layer.appendLineSublayer(
@@ -681,7 +681,7 @@ class GlyphNannyEditorDisplayManager:
                 textProperties["fillColor"] = self.colorReview
                 x, y = calculateMidpoint(pt1, pt2)
                 lineLayer.appendTextLineSublayer(
-                    text="Slight Angle",
+                    text="Angle Near Miss",
                     position=(x, y),
                     **textProperties
                 )

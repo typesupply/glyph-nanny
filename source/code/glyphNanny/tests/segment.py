@@ -19,7 +19,7 @@ from .wrappers import *
 
 # Straight Lines
 
-def testForStraightLines(contour):
+def testForAngleNearMiss(contour):
     """
     Lines shouldn't be just shy of vertical or horizontal.
 
@@ -48,11 +48,11 @@ def testForStraightLines(contour):
     return slightlyOffLines
 
 registry.registerTest(
-    identifier="straightLines",
+    identifier="angleNearMiss",
     level="segment",
-    title="Straight Lines",
-    description="One or more lines is a few units from being horizontal or vertical.",
-    testFunction=testForStraightLines,
+    title="Angle Near Miss",
+    description="One or more lines are nearly at important angles.",
+    testFunction=testForAngleNearMiss,
     defconClass=defcon.Contour,
     destructiveNotifications=["Contour.PointsChanged"]
 )
