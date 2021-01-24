@@ -49,13 +49,11 @@ class TemporaryManagerSpawner:
                 break
 
 
-
 class GlyphNannyEditorDisplayManager:
 
     def __init__(self, window):
         events.addObserver(self, "preferencesChangedCallback", "preferencesChanged")
         self.loadUserDefaults()
-        self.showTitles = True
         self.inactiveTests = set()
 
         self.glyphInfoLevelTests = []
@@ -116,13 +114,16 @@ class GlyphNannyEditorDisplayManager:
     # -------------
 
     def loadUserDefaults(self):
-        self.lineWidthRegular = defaults.getLineWidthRegular()
-        self.lineWidthHighlight = defaults.getLineWidthHighlight()
+        self.showReport = defaults.getDisplayLiveReport()
         self.colorBackground = getDefault("glyphViewBackgroundColor")
         self.colorReview = defaults.getColorReview()
         self.colorRemove = defaults.getColorRemove()
         self.colorInsert = defaults.getColorInsert()
         self.colorInform = defaults.getColorInform()
+        self.lineWidthRegular = defaults.getLineWidthRegular()
+        self.lineWidthHighlight = defaults.getLineWidthHighlight()
+        self.showTitles = defaults.getDisplayTitles()
+        self.textFont = defaults.getTextFont()
         self.inactiveTests = set()
         for testIdentifier in testRegistry.keys():
             state = defaults.getTestState(testIdentifier)
@@ -292,7 +293,7 @@ class GlyphNannyEditorDisplayManager:
 
     def _updateGlyphInfoLayer(self):
         layer = self.container.getSublayer("glyphInfo")
-        if self.glyph is None:
+        if self.glyph is None or not self.showReport:
             layer.clearSublayers()
             return
         glyphInfoData = {}
@@ -312,7 +313,7 @@ class GlyphNannyEditorDisplayManager:
 
     def _updateMetricsLayer(self):
         layer = self.container.getSublayer("metrics")
-        if self.glyph is None:
+        if self.glyph is None or not self.showReport:
             layer.clearSublayers()
             return
         metricsData = {}
@@ -398,7 +399,7 @@ class GlyphNannyEditorDisplayManager:
                     y += offset
 
     def _updateLayer(self, layer, obj, testIdentifier, forceUpdate):
-        if testIdentifier in self.inactiveTests:
+        if testIdentifier in self.inactiveTests or not self.showReport:
             layer.clearSublayers()
             return
         representationName = layer.getInfoValue("representationName")
@@ -426,16 +427,20 @@ class GlyphNannyEditorDisplayManager:
     # -------------
 
     def getTextProperties(self):
+        textFont = self.textFont
+        font = textFont["font"]
+        weight = textFont["weight"]
+        pointSize = textFont["pointSize"]
         properties = dict(
-            font="system",
-            weight="medium",
-            pointSize=10,
+            font=font,
+            weight=weight,
+            pointSize=pointSize,
             horizontalAlignment="center",
             verticalAlignment="center",
             fillColor=(0, 0, 0, 1),
             backgroundColor=self.colorBackground,
-            cornerRadius=5,
-            padding=(5, 2)
+            cornerRadius=pointSize / 2,
+            padding=(pointSize / 2, pointSize / 4)
         )
         return properties
 
@@ -525,16 +530,17 @@ class GlyphNannyEditorDisplayManager:
                     strokeColor=self.colorRemove,
                     strokeWidth=self.lineWidthHighlight
                 )
-                textProperties = self.getTextProperties()
-                textProperties["fillColor"] = self.colorRemove
-                textProperties["verticalAlignment"] = "top"
-                xMin, yMin, xMax, yMax = contour.bounds
-                x, y = calculateMidpoint((xMin, yMin), (xMax, yMax))
-                pathLayer.appendTextLineSublayer(
-                    text="Duplicate Contour",
-                    position=(x, yMin),
-                    **textProperties
-                )
+                if self.showTitles:
+                    textProperties = self.getTextProperties()
+                    textProperties["fillColor"] = self.colorRemove
+                    textProperties["verticalAlignment"] = "top"
+                    xMin, yMin, xMax, yMax = contour.bounds
+                    x, y = calculateMidpoint((xMin, yMin), (xMax, yMax))
+                    pathLayer.appendTextLineSublayer(
+                        text="Duplicate Contour",
+                        position=(x, yMin),
+                        **textProperties
+                    )
 
     def visualize_duplicateComponents(self, component, layer, data):
         layer.clearSublayers()
@@ -548,16 +554,17 @@ class GlyphNannyEditorDisplayManager:
                     strokeColor=self.colorRemove,
                     strokeWidth=self.lineWidthHighlight
                 )
-                textProperties = self.getTextProperties()
-                textProperties["fillColor"] = self.colorRemove
-                textProperties["verticalAlignment"] = "top"
-                xMin, yMin, xMax, yMax = component.bounds
-                x, y = calculateMidpoint((xMin, yMin), (xMax, yMax))
-                pathLayer.appendTextLineSublayer(
-                    text="Duplicate Component",
-                    position=(x, yMin),
-                    **textProperties
-                )
+                if self.showTitles:
+                    textProperties = self.getTextProperties()
+                    textProperties["fillColor"] = self.colorRemove
+                    textProperties["verticalAlignment"] = "top"
+                    xMin, yMin, xMax, yMax = component.bounds
+                    x, y = calculateMidpoint((xMin, yMin), (xMax, yMax))
+                    pathLayer.appendTextLineSublayer(
+                        text="Duplicate Component",
+                        position=(x, yMin),
+                        **textProperties
+                    )
 
     # Contour
     # -------

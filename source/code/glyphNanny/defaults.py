@@ -15,6 +15,9 @@ defaults = {
     defaultKeyStub + "colorInsert" : (1, 0.7, 0, 0.7),
     defaultKeyStub + "lineWidthRegular" : 1,
     defaultKeyStub + "lineWidthHighlight" : 4,
+    defaultKeyStub + "textFont" : "system",
+    defaultKeyStub + "textFontWeight" : "medium",
+    defaultKeyStub + "textPointSize" : 10,
 }
 for testIdentifier in testRegistry.keys():
     defaults[defaultKeyStub + "testState." + testIdentifier] = True
@@ -106,3 +109,26 @@ def getLineWidthHighlight():
 
 def setLineWidthHighlight(value):
     setExtensionDefault(defaultKeyStub + "lineWidthHighlight", value)
+
+# ----
+# Text
+# ----
+
+def getTextFont():
+    data = dict(
+        font=getExtensionDefault(defaultKeyStub + "textFont"),
+        weight=getExtensionDefault(defaultKeyStub + "textFontWeight"),
+        pointSize=getExtensionDefault(defaultKeyStub + "textPointSize"),
+    )
+    return data
+
+def setTextFont(data):
+    font = data.get("font")
+    if font is not None:
+        setExtensionDefault(defaultKeyStub + "textFont", font)
+    weight = data.get("textFontWeight")
+    if weight is not None:
+        setExtensionDefault(defaultKeyStub + "textFontWeight", weight)
+    pointSize = data.get("pointSize")
+    if pointSize is not None:
+        setExtensionDefault(defaultKeyStub + "textPointSize", pointSize)
