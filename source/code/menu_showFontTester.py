@@ -1,4 +1,4 @@
 from mojo.roboFont import OpenWindow
-from glyphNanny import GlyphNannyTestFontsWindow
+from glyphNanny.fontTestWindow import GlyphNannyFontTestWindow
 
 OpenWindow(GlyphNannyTestFontsWindow)

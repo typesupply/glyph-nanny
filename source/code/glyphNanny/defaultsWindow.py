@@ -11,7 +11,6 @@ class GlyphNannyDefaultsWindow:
             "auto",
             callback=self.testStateCallback
         )
-        print(testTabs.height)
 
         width = 270
         height = 250 + testTabs.height

@@ -10,7 +10,7 @@ metrics = dict(
 
 class TestTabs(vanilla.Group):
 
-    def __init__(self, posSize, callback):
+    def __init__(self, posSize, callback=None):
         super().__init__(posSize)
         self.callback = callback
 
@@ -87,7 +87,8 @@ class TestTabs(vanilla.Group):
         self.box.tabs.set(index)
 
     def checkBoxCallback(self, sender):
-        self.callback(self)
+        if self.callback is not None:
+            self.callback(self)
 
     def get(self):
         values = {

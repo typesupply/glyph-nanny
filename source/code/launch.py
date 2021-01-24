@@ -1,0 +1,4 @@
+import glyphNanny.defaults
+from glyphNanny.editorLayers import TemporaryManagerSpawner
+
+TemporaryManagerSpawner()
