@@ -1,14 +1,21 @@
-import defaults
 from tests.registry import testRegistry
 
-def getAvailableTests():
-    return testRegistry.keys()
+def registeredTests():
+    registered = {}
+    for testIdentifier, testData in testRegistry.items():
+        registered[testIdentifier] = dict(
+            level=testData["level"]
+            title=testData["title"]
+            description=testData["description"]
+            representationName=testData["representationName"]
+        )
+    return registered
 
 def testGlyph(glyph, tests=None):
     if tests is None:
-        tests = getAvailableTests()
+        tests = registeredTests()
     objectLevels = {}
-    for testIdentifier in sorted(tests):
+    for testIdentifier in sorted(tests.items()):
         testData = testRegistry[testIdentifier]
         level = testData["level"]
         if level not in objectLevels:
