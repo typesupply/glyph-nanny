@@ -437,7 +437,8 @@ class GlyphNannyEditorDisplayManager:
             fillColor=(0, 0, 0, 1),
             backgroundColor=self.colorBackground,
             cornerRadius=pointSize / 2,
-            padding=(pointSize / 2, pointSize / 4)
+            padding=(pointSize / 2, pointSize / 4),
+            offset=(0, -10)
         )
         return properties
 
