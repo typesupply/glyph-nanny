@@ -6,13 +6,13 @@ name = "Glyph Nanny"
 version = "2.0.0.a1"
 developer = "Type Supply"
 developerURL = "http://typesupply.com"
-roboFontVersion = "4"
+roboFontVersion = "4.0"
 pycOnly = False
 menuItems = [
     dict(
         path="menu_toggleObserverVisibility.py",
         preferredName="Show/Hide Live Report",
-        shortKey=("control", "r")
+        shortKey=""
     ),
     dict(
         path="menu_showFontTester.py",
@@ -109,7 +109,7 @@ if errors:
 
 if installAfterBuild:
 	print("Installing extension...", end=" ")
-	installDirectory = os.path.expanduser("~/Library/Application Support/RoboFont/plugins")
+	installDirectory = os.path.expanduser("~/Library/Application Support/RoboFont/plugins4")
 	installPath = os.path.join(installDirectory, extensionFile)
 	if os.path.exists(installPath):
 		shutil.rmtree(installPath)
