@@ -572,7 +572,7 @@ class GlyphNannyEditorDisplayManager:
     def visualize_duplicateContours(self, glyph, layer, data):
         layer.clearSublayers()
         if data:
-            for contourIndex in data:
+            for contourIndex, bounds in data:
                 contour = self.glyph[contourIndex]
                 path = contour.getRepresentation("merz.CGPath")
                 pathLayer = layer.appendPathSublayer(
@@ -596,7 +596,7 @@ class GlyphNannyEditorDisplayManager:
     def visualize_duplicateComponents(self, component, layer, data):
         layer.clearSublayers()
         if data:
-            for componentIndex in data:
+            for componentIndex, bounds in data:
                 component = self.glyph.components[componentIndex]
                 path = component.getRepresentation("merz.CGPath")
                 pathLayer = layer.appendPathSublayer(

@@ -208,7 +208,10 @@ def testDuplicateContours(glyph):
 
     Data structure:
 
-        [contourIndex, ...]
+        [
+            (contourIndex, bounds),
+            ...
+        ]
     """
     glyph = wrapGlyph(glyph)
     contours = {}
@@ -224,7 +227,7 @@ def testDuplicateContours(glyph):
     duplicateContours = []
     for digest, indexes in contours.items():
         if len(indexes) > 1:
-            duplicateContours.append(indexes[0])
+            duplicateContours.append((indexes[0], contour.bounds))
     return duplicateContours
 
 registry.registerTest(
@@ -244,7 +247,7 @@ def testDuplicateComponents(glyph):
     Components shouldn't be duplicated on each other.
 
         [
-            componentIndex,
+            (componentIndex, bounds),
             ...
         ]
 
@@ -255,7 +258,7 @@ def testDuplicateComponents(glyph):
     for index, component in enumerate(glyph.components):
         key = (component.baseGlyph, component.transformation)
         if key in components:
-            duplicateComponents.append(index)
+            duplicateComponents.append((index, component.bounds))
         components.add(key)
     return duplicateComponents
 
