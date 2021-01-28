@@ -78,16 +78,14 @@ class TemporaryManagerSpawner:
                 break
 
     def didUndoCallback(self, notification):
-        print("didUndoCallback")
         view = notification["view"]
         glyph = notification["glyph"]
         if glyph is not None:
             glyph = wrapGlyph(glyph)
         for window, obj in self.windows.items():
             if window.getGlyphView() == view:
-                obj.setGlyph(glyph)
+                obj.updateLayers()
                 break
-
 
 class GlyphNannyEditorDisplayManager:
 
@@ -124,7 +122,6 @@ class GlyphNannyEditorDisplayManager:
           + self.pointLevelTests
         )
         self.buildContainer(window)
-        self.setGlyph(wrapGlyph(window.getGlyph()))
 
     def windowClosed(self):
         events.removeObserver(self, "preferencesChanged")
@@ -177,6 +174,8 @@ class GlyphNannyEditorDisplayManager:
     glyph = None
 
     def setGlyph(self, glyph):
+        if glyph == self.glyph:
+            return
         self.stopObservingGlyph()
         self.destroyContourContainers()
         self.glyph = glyph
@@ -291,7 +290,9 @@ class GlyphNannyEditorDisplayManager:
         """
         Build contour container for a specific contour.
         """
-        contourContainer = self.contourContainers[contour] = self.container.appendBaseSublayer()
+        contourContainer = self.contourContainers[contour] = self.container.appendBaseSublayer(
+            name="contour.%s" % id(contour.naked())
+        )
         for testIdentifier in self.contourContainerTestIdentifiers:
             testData = testRegistry[testIdentifier]
             layer = contourContainer.appendBaseSublayer(
@@ -304,21 +305,26 @@ class GlyphNannyEditorDisplayManager:
         """
         Destroy contour container for a specific contour.
         """
+        # during cut, the contour can come
+        # through here > 1 times, so return
+        # if the contour is unknown.
+        if contour not in self.contourContainers:
+            return
         contourContainer = self.contourContainers.pop(contour)
         self.container.removeSublayer(contourContainer)
 
     def updateLayers(self, forceUpdate=False):
         # if the contour containers don't match,
-        # the existing container need to be torn
-        # down and new ones built. this happens
-        # after undo/redo.
+        # the mismatched containers need to be
+        # torn down or built. this happens after
+        # undo/redo.
         if self.glyph is not None:
-            contourContainers = set(self.contourContainers.keys())
+            containerContours = set(self.contourContainers.keys())
             glyphContours = set((contour for contour in self.glyph))
-            if contourContainers != glyphContours:
-                print("rebuild")
-                self.destroyContourContainers()
-                self.buildContourContainers()
+            for contour in containerContours - glyphContours:
+                self.destroyContourContainer(contour)
+            for contour in glyphContours - containerContours:
+                self.buildContourContainer(contour)
         # info
         self._updateGlyphInfoLayer()
         # metrics
@@ -566,7 +572,7 @@ class GlyphNannyEditorDisplayManager:
     def visualize_duplicateContours(self, glyph, layer, data):
         layer.clearSublayers()
         if data:
-            for contourIndex in data:
+            for contourIndex, bounds in data:
                 contour = self.glyph[contourIndex]
                 path = contour.getRepresentation("merz.CGPath")
                 pathLayer = layer.appendPathSublayer(
@@ -590,7 +596,7 @@ class GlyphNannyEditorDisplayManager:
     def visualize_duplicateComponents(self, component, layer, data):
         layer.clearSublayers()
         if data:
-            for componentIndex in data:
+            for componentIndex, bounds in data:
                 component = self.glyph.components[componentIndex]
                 path = component.getRepresentation("merz.CGPath")
                 pathLayer = layer.appendPathSublayer(
