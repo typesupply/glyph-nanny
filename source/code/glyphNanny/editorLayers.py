@@ -287,20 +287,26 @@ class GlyphNannyEditorDisplayManager:
         """
         Destroy contour container for a specific contour.
         """
+        # during cut, the contour can come
+        # through here > 1 times, so return
+        # if the contour is unknown.
+        if contour not in self.contourContainers:
+            return
         contourContainer = self.contourContainers.pop(contour)
         self.container.removeSublayer(contourContainer)
 
     def updateLayers(self, forceUpdate=False):
         # if the contour containers don't match,
-        # the existing container need to be torn
-        # down and new ones built. this happens
-        # after undo/redo.
+        # the mismatched containers need to be
+        # torn down or built. this happens after
+        # undo/redo.
         if self.glyph is not None:
-            contourContainers = set(self.contourContainers.keys())
+            containerContours = set(self.contourContainers.keys())
             glyphContours = set((contour for contour in self.glyph))
-            if contourContainers != glyphContours:
-                self.destroyContourContainers()
-                self.buildContourContainers()
+            for contour in containerContours - glyphContours:
+                self.destroyContourContainer(contour)
+            for contour in glyphContours - containerContours:
+                self.buildContourContainer(contour)
         # info
         self._updateGlyphInfoLayer()
         # metrics
