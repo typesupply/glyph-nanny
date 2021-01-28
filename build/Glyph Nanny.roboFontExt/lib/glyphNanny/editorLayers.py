@@ -14,15 +14,44 @@ class TemporaryManagerSpawner:
     # XXX this will be replaced by something in mojo
 
     def __init__(self):
-        events.addObserver(self, "glyphWindowWillOpenCallback", "glyphWindowWillOpen")
-        events.addObserver(self, "glyphWindowWillCloseCallback", "glyphWindowWillClose")
-        events.addObserver(self, "viewDidChangeGlyphCallback", "viewDidChangeGlyph")
+        deadObservations = events.findObservations(
+            identifier="com.typesupply.GlyphNanny2.*"
+        )
+        for observation in deadObservations:
+            observer = observation["observer"]
+            notification = observation["notification"]
+            events.removeObserver(observer, notification)
+        events.addObserver(
+            self,
+            "glyphWindowWillOpenCallback",
+            "glyphWindowWillOpen",
+            identifier="com.typesupply.GlyphNanny2.TemporaryManagerSpawner.glyphWindowWillOpen"
+        )
+        events.addObserver(
+            self,
+            "glyphWindowWillCloseCallback",
+            "glyphWindowWillClose",
+            identifier="com.typesupply.GlyphNanny2.TemporaryManagerSpawner.glyphWindowWillClose"
+        )
+        events.addObserver(
+            self,
+            "viewDidChangeGlyphCallback",
+            "viewDidChangeGlyph",
+            identifier="com.typesupply.GlyphNanny2.TemporaryManagerSpawner.viewDidChangeGlyph"
+        )
+        events.addObserver(
+            self,
+            "didUndoCallback",
+            "didUndo",
+            identifier="com.typesupply.GlyphNanny2.TemporaryManagerSpawner.didUndo"
+        )
         self.windows = {}
 
     def destroy(self):
         events.removeObserver(self, "glyphWindowWillOpen")
         events.removeObserver(self, "glyphWindowWillClose")
         events.removeObserver(self, "viewDidChangeGlyph")
+        events.removeObserver(self, "didUndo")
 
     def glyphWindowWillOpenCallback(self, notification):
         window = notification["window"]
@@ -39,6 +68,17 @@ class TemporaryManagerSpawner:
         obj.windowClosed()
 
     def viewDidChangeGlyphCallback(self, notification):
+        view = notification["view"]
+        glyph = notification["glyph"]
+        if glyph is not None:
+            glyph = wrapGlyph(glyph)
+        for window, obj in self.windows.items():
+            if window.getGlyphView() == view:
+                obj.setGlyph(glyph)
+                break
+
+    def didUndoCallback(self, notification):
+        print("didUndoCallback")
         view = notification["view"]
         glyph = notification["glyph"]
         if glyph is not None:
@@ -169,11 +209,7 @@ class GlyphNannyEditorDisplayManager:
     def stopObservingGlyph(self):
         if self.glyph is None:
             return
-        for notification in self.glyphObservations:
-            self.glyph.removeObserver(
-                self,
-                notification
-            )
+        self.glyph.removeObserver(self, None)
 
     def glyphChangedCallback(self, notification):
         self.updateLayers()
@@ -272,6 +308,17 @@ class GlyphNannyEditorDisplayManager:
         self.container.removeSublayer(contourContainer)
 
     def updateLayers(self, forceUpdate=False):
+        # if the contour containers don't match,
+        # the existing container need to be torn
+        # down and new ones built. this happens
+        # after undo/redo.
+        if self.glyph is not None:
+            contourContainers = set(self.contourContainers.keys())
+            glyphContours = set((contour for contour in self.glyph))
+            if contourContainers != glyphContours:
+                print("rebuild")
+                self.destroyContourContainers()
+                self.buildContourContainers()
         # info
         self._updateGlyphInfoLayer()
         # metrics
