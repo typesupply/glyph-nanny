@@ -39,6 +39,12 @@ class TemporaryManagerSpawner:
             "viewDidChangeGlyph",
             identifier="com.typesupply.GlyphNanny2.TemporaryManagerSpawner.viewDidChangeGlyph"
         )
+        events.addObserver(
+            self,
+            "didUndoCallback",
+            "didUndo",
+            identifier="com.typesupply.GlyphNanny2.TemporaryManagerSpawner.didUndo"
+        )
         self.windows = {}
 
     def destroy(self):
@@ -71,6 +77,15 @@ class TemporaryManagerSpawner:
                 obj.setGlyph(glyph)
                 break
 
+    def didUndoCallback(self, notification):
+        view = notification["view"]
+        glyph = notification["glyph"]
+        if glyph is not None:
+            glyph = wrapGlyph(glyph)
+        for window, obj in self.windows.items():
+            if window.getGlyphView() == view:
+                obj.updateLayers()
+                break
 
 class GlyphNannyEditorDisplayManager:
 
