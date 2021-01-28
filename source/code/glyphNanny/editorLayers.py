@@ -107,7 +107,6 @@ class GlyphNannyEditorDisplayManager:
           + self.pointLevelTests
         )
         self.buildContainer(window)
-        self.setGlyph(wrapGlyph(window.getGlyph()))
 
     def windowClosed(self):
         events.removeObserver(self, "preferencesChanged")
@@ -160,6 +159,8 @@ class GlyphNannyEditorDisplayManager:
     glyph = None
 
     def setGlyph(self, glyph):
+        if glyph == self.glyph:
+            return
         self.stopObservingGlyph()
         self.destroyContourContainers()
         self.glyph = glyph
@@ -274,7 +275,9 @@ class GlyphNannyEditorDisplayManager:
         """
         Build contour container for a specific contour.
         """
-        contourContainer = self.contourContainers[contour] = self.container.appendBaseSublayer()
+        contourContainer = self.contourContainers[contour] = self.container.appendBaseSublayer(
+            name="contour.%s" % id(contour.naked())
+        )
         for testIdentifier in self.contourContainerTestIdentifiers:
             testData = testRegistry[testIdentifier]
             layer = contourContainer.appendBaseSublayer(
