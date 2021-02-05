@@ -339,10 +339,12 @@ class GlyphNannyEditorDisplayManager:
         # contour, segment, points
         if self.glyph is not None:
             for contour in self.glyph.contours:
-                contourContainer = self.contourContainers[contour]
-                for testIdentifier in self.contourContainerTestIdentifiers:
-                    testLayer = contourContainer.getSublayer(testIdentifier)
-                    self._updateLayer(testLayer, contour, testIdentifier, forceUpdate)
+                # skip empty contours
+                if contour:
+                    contourContainer = self.contourContainers[contour]
+                    for testIdentifier in self.contourContainerTestIdentifiers:
+                        testLayer = contourContainer.getSublayer(testIdentifier)
+                        self._updateLayer(testLayer, contour, testIdentifier, forceUpdate)
 
     def _updateGlyphInfoLayer(self):
         layer = self.container.getSublayer("glyphInfo")
@@ -585,13 +587,15 @@ class GlyphNannyEditorDisplayManager:
                     textProperties = self.getTextProperties()
                     textProperties["fillColor"] = self.colorRemove
                     textProperties["verticalAlignment"] = "top"
-                    xMin, yMin, xMax, yMax = contour.bounds
-                    x, y = calculateMidpoint((xMin, yMin), (xMax, yMax))
-                    pathLayer.appendTextLineSublayer(
-                        text="Duplicate Contour",
-                        position=(x, yMin),
-                        **textProperties
-                    )
+                    bounds = contour.bounds
+                    if bounds:
+                        xMin, yMin, xMax, yMax = bounds
+                        x, y = calculateMidpoint((xMin, yMin), (xMax, yMax))
+                        pathLayer.appendTextLineSublayer(
+                            text="Duplicate Contour",
+                            position=(x, yMin),
+                            **textProperties
+                        )
 
     def visualize_duplicateComponents(self, component, layer, data):
         layer.clearSublayers()
