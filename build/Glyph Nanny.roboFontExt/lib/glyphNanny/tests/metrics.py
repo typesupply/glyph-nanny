@@ -94,11 +94,11 @@ def testComponentMetrics(glyph):
     # no components
     if len(components) == 0:
         return
-    boxes = [c.box for c in components]
+    boxes = [c.bounds for c in components]
     # a component has no contours
     if None in boxes:
         return
-    report = dict(leftMessage=None, rightMessage=None, left=None, right=None, width=glyph.width, box=glyph.box)
+    report = dict(leftMessage=None, rightMessage=None, left=None, right=None, width=glyph.width, box=glyph.bounds)
     problem = False
     if len(components) > 1:
         # filter marks
@@ -118,8 +118,8 @@ def testComponentMetrics(glyph):
         leftComponent = rightComponent = components[0]
     expectedLeft = _getComponentBaseMargins(font, leftComponent)[0]
     expectedRight = _getComponentBaseMargins(font, rightComponent)[1]
-    left = leftComponent.box[0]
-    right = glyph.width - rightComponent.box[2]
+    left = leftComponent.bounds[0]
+    right = glyph.width - rightComponent.bounds[2]
     if left != expectedLeft:
         problem = True
         report["leftMessage"] = "%s component left does not match %s left" % (leftComponent.baseGlyph, leftComponent.baseGlyph)
@@ -143,7 +143,7 @@ def _getXMinMaxComponents(components):
     minSide = []
     maxSide = []
     for component in components:
-        xMin, yMin, xMax, yMax = component.box
+        xMin, yMin, xMax, yMax = component.bounds
         minSide.append((xMin, component))
         maxSide.append((xMax, component))
     o = [

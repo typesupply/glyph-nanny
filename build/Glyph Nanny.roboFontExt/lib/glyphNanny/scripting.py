@@ -121,7 +121,7 @@ def formatLayerReport(report):
         lines.append("\n")
     return "\n".join(lines).strip()
 
-contourTitle_RE = re.compile("contour([\d])+:")
+contourTitle_RE = re.compile(r"contour([\d])+:")
 
 def formatGlyphReport(report):
     report = purgeGlyphReport(report)

@@ -1,6 +1,6 @@
 import merz
-from mojo import events
 from mojo.UI import getDefault
+from mojo.subscriber import Subscriber, registerGlyphEditorSubscriber
 from . import defaults
 from .tests.registry import testRegistry
 from .tests.tools import (
@@ -9,88 +9,9 @@ from .tests.tools import (
 )
 from .tests.wrappers import *
 
-class TemporaryManagerSpawner:
+class GlyphNannyEditorDisplayManager(Subscriber):
 
-    # XXX this will be replaced by something in mojo
-
-    def __init__(self):
-        deadObservations = events.findObservations(
-            identifier="com.typesupply.GlyphNanny2.*"
-        )
-        for observation in deadObservations:
-            observer = observation["observer"]
-            notification = observation["notification"]
-            events.removeObserver(observer, notification)
-        events.addObserver(
-            self,
-            "glyphWindowWillOpenCallback",
-            "glyphWindowWillOpen",
-            identifier="com.typesupply.GlyphNanny2.TemporaryManagerSpawner.glyphWindowWillOpen"
-        )
-        events.addObserver(
-            self,
-            "glyphWindowWillCloseCallback",
-            "glyphWindowWillClose",
-            identifier="com.typesupply.GlyphNanny2.TemporaryManagerSpawner.glyphWindowWillClose"
-        )
-        events.addObserver(
-            self,
-            "viewDidChangeGlyphCallback",
-            "viewDidChangeGlyph",
-            identifier="com.typesupply.GlyphNanny2.TemporaryManagerSpawner.viewDidChangeGlyph"
-        )
-        events.addObserver(
-            self,
-            "didUndoCallback",
-            "didUndo",
-            identifier="com.typesupply.GlyphNanny2.TemporaryManagerSpawner.didUndo"
-        )
-        self.windows = {}
-
-    def destroy(self):
-        events.removeObserver(self, "glyphWindowWillOpen")
-        events.removeObserver(self, "glyphWindowWillClose")
-        events.removeObserver(self, "viewDidChangeGlyph")
-        events.removeObserver(self, "didUndo")
-
-    def glyphWindowWillOpenCallback(self, notification):
-        window = notification["window"]
-        obj = GlyphNannyEditorDisplayManager(window)
-        self.windows[window] = obj
-        glyph = window.getGlyph()
-        if glyph is not None:
-            glyph = wrapGlyph(glyph)
-        obj.setGlyph(glyph)
-
-    def glyphWindowWillCloseCallback(self, notification):
-        window = notification["window"]
-        obj = self.windows.pop(window)
-        obj.windowClosed()
-
-    def viewDidChangeGlyphCallback(self, notification):
-        view = notification["view"]
-        glyph = notification["glyph"]
-        if glyph is not None:
-            glyph = wrapGlyph(glyph)
-        for window, obj in self.windows.items():
-            if window.getGlyphView() == view:
-                obj.setGlyph(glyph)
-                break
-
-    def didUndoCallback(self, notification):
-        view = notification["view"]
-        glyph = notification["glyph"]
-        if glyph is not None:
-            glyph = wrapGlyph(glyph)
-        for window, obj in self.windows.items():
-            if window.getGlyphView() == view:
-                obj.updateLayers()
-                break
-
-class GlyphNannyEditorDisplayManager:
-
-    def __init__(self, window):
-        events.addObserver(self, "preferencesChangedCallback", "preferencesChanged")
+    def build(self):
         self.loadUserDefaults()
         self.inactiveTests = set()
 
@@ -121,28 +42,36 @@ class GlyphNannyEditorDisplayManager:
           + self.segmentLevelTests
           + self.pointLevelTests
         )
-        self.buildContainer(window)
 
-    def windowClosed(self):
-        events.removeObserver(self, "preferencesChanged")
+        window = self.getGlyphEditor()
+        self.container = window.extensionContainer(
+            "com.typesupply.GlyphNanny",
+            location="background",
+            clear=True
+        )
+        self.buildGlyphContainers()
+
+    def destroy(self):
         self.container.clearSublayers()
         self.container.clearAnimation()
-        self.stopObservingGlyph()
 
     # -----------------
-    # App Notifications
+    # App Subscriptions
     # -----------------
 
-    def glyphWindowWillOpenCallback(self, notification):
-        window = notification["window"]
-        self.buildContainer(window)
-        self.setGlyph(wrapGlyph(window.getGlyph()))
+    glyph = None
+    glyphContours = None
 
-    def viewDidChangeGlyphCallback(self, notification):
-        glyph = notification["glyph"]
-        self.setGlyph(glyph)
+    def glyphEditorDidSetGlyph(self, info):
+        glyph = info["glyph"]
+        if glyph == self.glyph:
+            return
+        self.destroyContourContainers()
+        self.glyph = glyph
+        self.buildContourContainers()
+        self.updateLayers()
 
-    def preferencesChangedCallback(self, notification):
+    def roboFontPreferencesChanged(self, info):
         self.loadUserDefaults()
         self.updateLayers(forceUpdate=True)
 
@@ -171,69 +100,30 @@ class GlyphNannyEditorDisplayManager:
     # Glyph
     # -----
 
-    glyph = None
-
-    def setGlyph(self, glyph):
-        if glyph == self.glyph:
-            return
-        self.stopObservingGlyph()
-        self.destroyContourContainers()
-        self.glyph = glyph
-        self.buildContourContainers()
-        self.updateLayers()
-        self.startObservingGlyph()
-
-    glyphObservations = (
-        "Glyph.Changed",
-        "Glyph.ContourWillBeAdded",
-        "Glyph.ContourWillBeDeleted"
-    )
-
-    def _makeObservationCallbackName(self, notification):
-        name = notification.replace(".", "")
-        name = name[0].lower() + name[1:]
-        name += "Callback"
-        return name
-
-    def startObservingGlyph(self):
-        if self.glyph is None:
-            return
-        for notification in self.glyphObservations:
-            self.glyph.addObserver(
-                self,
-                self._makeObservationCallbackName(notification),
-                notification
-            )
-
-    def stopObservingGlyph(self):
-        if self.glyph is None:
-            return
-        self.glyph.removeObserver(self, None)
-
-    def glyphChangedCallback(self, notification):
+    def glyphEditorGlyphInfoDidChange(self, info):
         self.updateLayers()
 
-    def glyphContourWillBeAddedCallback(self, notification):
-        contour = notification.data["object"]
-        contour = wrapContour(contour)
-        self.buildContourContainer(contour)
+    def glyphEditorGlyphMetricsDidChange(self, info):
+        self.updateLayers()
 
-    def glyphContourWillBeDeletedCallback(self, notification):
-        contour = notification.data["object"]
-        contour = wrapContour(contour)
-        self.destroyContourContainer(contour)
+    def glyphEditorGlyphContoursDidChange(self, info):
+        glyph = info["glyph"]
+        contours = list(glyph.contours)
+        if contours != self.glyphContours:
+            self.destroyContourContainers()
+            self.buildContourContainers()
+        self.updateLayers()
+
+    glyphEditorGlyphContoursDidChangeDelay = 0
+
+    def glyphEditorGlyphComponentsDidChange(self, info):
+        self.updateLayers()
+
+    glyphEditorGlyphComponentsDidChangeDelay = 0
 
     # ----------------
     # Layer Management
     # ----------------
-
-    def buildContainer(self, window):
-        self.container = window.extensionContainer(
-            "com.typesupply.GlyphNanny",
-            location="background",
-            clear=True
-        )
-        self.buildGlyphContainers()
 
     def buildGlyphContainers(self):
         """
@@ -274,9 +164,12 @@ class GlyphNannyEditorDisplayManager:
             return
         if not self.glyph.contours:
             return
+        contours = []
         with self.container.sublayerGroup():
             for contour in self.glyph.contours:
                 self.buildContourContainer(contour)
+                contours.append(contour)
+        self.glyphContours = contours
 
     def destroyContourContainers(self):
         """
@@ -339,12 +232,10 @@ class GlyphNannyEditorDisplayManager:
         # contour, segment, points
         if self.glyph is not None:
             for contour in self.glyph.contours:
-                # skip empty contours
-                if contour:
-                    contourContainer = self.contourContainers[contour]
-                    for testIdentifier in self.contourContainerTestIdentifiers:
-                        testLayer = contourContainer.getSublayer(testIdentifier)
-                        self._updateLayer(testLayer, contour, testIdentifier, forceUpdate)
+                contourContainer = self.contourContainers[contour]
+                for testIdentifier in self.contourContainerTestIdentifiers:
+                    testLayer = contourContainer.getSublayer(testIdentifier)
+                    self._updateLayer(testLayer, contour, testIdentifier, forceUpdate)
 
     def _updateGlyphInfoLayer(self):
         layer = self.container.getSublayer("glyphInfo")
@@ -587,15 +478,13 @@ class GlyphNannyEditorDisplayManager:
                     textProperties = self.getTextProperties()
                     textProperties["fillColor"] = self.colorRemove
                     textProperties["verticalAlignment"] = "top"
-                    bounds = contour.bounds
-                    if bounds:
-                        xMin, yMin, xMax, yMax = bounds
-                        x, y = calculateMidpoint((xMin, yMin), (xMax, yMax))
-                        pathLayer.appendTextLineSublayer(
-                            text="Duplicate Contour",
-                            position=(x, yMin),
-                            **textProperties
-                        )
+                    xMin, yMin, xMax, yMax = contour.bounds
+                    x, y = calculateMidpoint((xMin, yMin), (xMax, yMax))
+                    pathLayer.appendTextLineSublayer(
+                        text="Duplicate Contour",
+                        position=(x, yMin),
+                        **textProperties
+                    )
 
     def visualize_duplicateComponents(self, component, layer, data):
         layer.clearSublayers()
@@ -937,6 +826,10 @@ class GlyphNannyEditorDisplayManager:
         layer.clearSublayers()
         self._visualizeRemovePoints(layer, data, "Overlapping Point")
 
+
+registerGlyphEditorSubscriber(GlyphNannyEditorDisplayManager)
+
+
 # -------
 # Symbols
 # -------
@@ -995,26 +888,3 @@ def editorArrowSymbolFactory(size, strokeColor, strokeWidth):
     return bot.getImage()
 
 merz.SymbolImageVendor.registerImageFactory("GlyphNanny.editorArrow", editorArrowSymbolFactory)
-
-# ----
-# Test
-# ----
-
-import vanilla
-from defconAppKit.windows.baseWindow import BaseWindowController
-from mojo.UI import CurrentGlyphWindow
-
-class Test(BaseWindowController):
-
-    def __init__(self):
-        self.manager = TemporaryManagerSpawner()
-        self.w = vanilla.FloatingWindow((200, 200))
-        self.setUpBaseWindowBehavior()
-        self.w.open()
-
-    def windowCloseCallback(self, sender):
-        self.manager.destroy()
-
-
-if __name__ == "__main__":
-    Test()
