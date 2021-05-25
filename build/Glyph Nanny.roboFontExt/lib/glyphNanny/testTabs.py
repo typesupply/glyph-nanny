@@ -1,98 +1,63 @@
-import vanilla
-from . import defaults
+import ezui
 from .tests.registry import testRegistry
+from . import defaults
 
-metrics = dict(
-    margin=15,
-    leading=10,
-    spacing=10
-)
+groups = [
+    ("glyphInfo", "Glyph Info Tests"),
+    ("glyph", "Glyph Tests"),
+    ("metrics", "Metrics Tests"),
+    ("contour", "Contour Tests"),
+    ("segment", "Segment Tests"),
+    ("point", "Point Tests")
+]
+groupTitles = [title for (level, title) in groups]
+groupLevels = {}
+for testIdentifier, testData in testRegistry.items():
+    level = testData["level"]
+    if level not in groupLevels:
+        groupLevels[level] = []
+    groupLevels[level].append((testData["title"], testIdentifier))
 
-class TestTabs(vanilla.Group):
-
-    def __init__(self, posSize, callback=None):
-        super().__init__(posSize)
-        self.callback = callback
-
-        groups = [
-            ("glyphInfo", "Glyph Info Tests"),
-            ("glyph", "Glyph Tests"),
-            ("metrics", "Metrics Tests"),
-            ("contour", "Contour Tests"),
-            ("segment", "Segment Tests"),
-            ("point", "Point Tests")
-        ]
-        groupTitles = [title for (level, title) in groups]
-        groupLevels = {}
-        for testIdentifier, testData in testRegistry.items():
-            level = testData["level"]
-            if level not in groupLevels:
-                groupLevels[level] = []
-            groupLevels[level].append((testData["title"], testIdentifier))
-
-        count = max([len(tests) for tests in groupLevels.values()])
-        height = 40 + (count * 30)
-        self.height = height
-
-        self.box = vanilla.Box((0, 10, 0, height - 20))
-
-        self.tabSelectorFlex1 = vanilla.Group("auto")
-        self.tabSelectorPopUpButton = vanilla.PopUpButton(
-            "auto",
-            groupTitles,
-            callback=self.tabSelectorPopUpButtonCallback
+def makeTestsTableDescription():
+    columnDescriptions = [
+        dict(
+            identifier="state",
+            cellDescription=dict(
+                cellType="Checkbox"
+            ),
+            editable=True,
+            width=16
+        ),
+        dict(
+            identifier="title"
         )
-        self.tabSelectorFlex2 = vanilla.Group("auto")
-
-        self.box.tabs = vanilla.Tabs(
-            (0, 15, 0, 0),
-            groupTitles,
-            showTabs=False
+    ]
+    tableItems = []
+    for i, (groupLevel, groupTests) in enumerate(groupLevels.items()):
+        groupTitle = groupTitles[i]
+        tableItems.append(
+            groupTitle
         )
-        self.checkBoxes = {}
-        for i, (groupLevel, groupTitle) in enumerate(groups):
-            tab = self.box.tabs[i]
-            tab.stackGroup = vanilla.VerticalStackGroup(
-                (0, 0, 0, 0),
-                spacing=0,
-                alignment="leading",
-                edgeInsets=(0, 10, 0, -10)
+        testIdentifiers = groupLevels[groupLevel]
+        testIdentifiers.sort()
+        for testTitle, testIdentifier in testIdentifiers:
+            value = defaults.getTestState(testIdentifier)
+            item = dict(
+                identifier=testIdentifier,
+                title=testTitle,
+                state=value
             )
-            testIdentifiers = groupLevels[groupLevel]
-            testIdentifiers.sort()
-            for testTitle, testIdentifier in testIdentifiers:
-                value = defaults.getTestState(testIdentifier)
-                checkBox = vanilla.CheckBox(
-                    "auto",
-                    testTitle,
-                    value=value,
-                    callback=self.checkBoxCallback
-                )
-                tab.stackGroup.addView(checkBox, gravity="top")
-                self.checkBoxes[testIdentifier] = checkBox
-
-        rules = [
-            "H:|[tabSelectorFlex1][tabSelectorPopUpButton][tabSelectorFlex2(==tabSelectorFlex1)]|",
-            "V:|"
-                "[tabSelectorFlex1(==0)]",
-            "V:|"
-                "[tabSelectorFlex2(==tabSelectorFlex1)]",
-            "V:|"
-                "[tabSelectorPopUpButton]"
-        ]
-        self.addAutoPosSizeRules(rules, metrics)
-
-    def tabSelectorPopUpButtonCallback(self, sender):
-        index = sender.get()
-        self.box.tabs.set(index)
-
-    def checkBoxCallback(self, sender):
-        if self.callback is not None:
-            self.callback(self)
-
-    def get(self):
-        values = {
-            testIdentifier : checkBox.get()
-            for testIdentifier, checkBox in self.checkBoxes.items()
-        }
-        return values
+            tableItems.append(item)
+    testsTableDescription = dict(
+        identifier="testStates",
+        type="Table",
+        columnDescriptions=columnDescriptions,
+        items=tableItems,
+        allowsGroupRows=True,
+        showColumnTitles=False,
+        alternatingRowColors=False,
+        allowsSelection=False,
+        allowsSorting=False,
+        height=250
+    )
+    return testsTableDescription

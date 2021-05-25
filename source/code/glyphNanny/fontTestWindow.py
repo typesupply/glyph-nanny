@@ -1,56 +1,54 @@
 import os
-import vanilla
 from vanilla import dialogs
+import ezui
 from defconAppKit.windows.baseWindow import BaseWindowController
 from fontParts.world import CurrentFont
-from .testTabs import TestTabs, metrics
+from .testTabs import makeTestsTableDescription
 from .scripting import testFont, formatFontReport
 
 
-class GlyphNannyFontTestWindow(BaseWindowController):
+class GlyphNannyFontTestWindow(ezui.WindowController):
 
-    def __init__(self):
-        testTabs = TestTabs("auto")
-        height = 90 + testTabs.height
-        width = 270
-
-        self.w = vanilla.Window((width, height), "Glyph Nanny")
-
+    def build(self):
         # Tests
+        testsTableDescription = makeTestsTableDescription()
 
-        self.w.testTabs = testTabs
-
-        # Options
-
-        self.w.ignoreOverlapCheckBox = vanilla.CheckBox(
-            "auto",
-            "Ignore Outline Overlaps"
+        # Overlaps
+        ignoreOverlapCheckBox = dict(
+            identifier="ignoreOverlap",
+            type="Checkbox",
+            text="Ignore Outline Overlaps"
         )
 
-        # Buttons
-
-        self.w.testCurrentFontButton = vanilla.Button(
-            "auto",
-            "Test Current Font",
-            callback=self.testCurrentFontButtonCallback
+        # Test
+        testCurrentFontButton = dict(
+            identifier="testCurrentFontButton",
+            type="PushButton",
+            text="Test Current Font"
         )
 
-        rules = [
-            "H:|-margin-[testTabs]-margin-|",
-            "H:|-margin-[ignoreOverlapCheckBox]-margin-|",
-            "H:|-margin-[testCurrentFontButton]-margin-|",
-            "V:|"
-                "-margin-"
-                "[testTabs]"
-                "-spacing-"
-                "[ignoreOverlapCheckBox]"
-                "-margin-"
-                "[testCurrentFontButton]"
-                "-margin-"
-              "|"
-        ]
+        windowContent = dict(
+            identifier="settingsStack",
+            type="VerticalStack",
+            contentDescriptions=[
+                testsTableDescription,
+                ignoreOverlapCheckBox,
+                testCurrentFontButton,
+            ],
+            spacing=15
+        )
+        windowDescription = dict(
+            type="Window",
+            size=(270, "auto"),
+            title="Glyph Nanny",
+            contentDescription=windowContent
+        )
+        self.w = ezui.makeItem(
+            windowDescription,
+            controller=self
+        )
 
-        self.w.addAutoPosSizeRules(rules, metrics)
+    def started(self):
         self.w.open()
 
     def testCurrentFontButtonCallback(self, sender):
@@ -61,14 +59,17 @@ class GlyphNannyFontTestWindow(BaseWindowController):
         self._processFont(font)
 
     def _processFont(self, font):
-        testStates = self.w.testTabs.get()
-        ignoreOverlap = self.w.ignoreOverlapCheckBox.get()
-        progressBar = self.startProgress(tickCount=len(font))
-        tests = [
-            testIdentifier
-            for testIdentifier, testState in testStates.items()
-            if testState
-        ]
+        values = self.w.findItem("settingsStack")
+        tests = []
+        for testItem in self.w.findItem("testStates").get():
+            if isinstance(testItem, ezui.TableGroupRow):
+                continue
+            identifier = testItem["identifier"]
+            state = testItem["state"]
+            if state:
+                tests.append(identifier)
+        ignoreOverlap = self.w.findItem("ignoreOverlap").get()
+        # progressBar = self.startProgress(tickCount=len(font))
         if ignoreOverlap:
             fontToTest = font.copy()
             for glyph in font:
@@ -79,50 +80,55 @@ class GlyphNannyFontTestWindow(BaseWindowController):
             report = testFont(
                 font,
                 tests,
-                progressBar=progressBar
+                # progressBar=progressBar
             )
         finally:
-            progressBar.close()
+            pass
+            # progressBar.close()
         text = formatFontReport(report)
         FontReportWindow(font, text, report.keys())
 
 
-class FontReportWindow(BaseWindowController):
+class FontReportWindow(ezui.WindowController):
 
-    def __init__(self, font, text, glyphsWithIssues):
+    def build(self, font, text, glyphsWithIssues):
         self.font = font
         self.glyphsWithIssues = glyphsWithIssues
         title = "Glyph Nanny Report: Unsaved Font"
         if font.path is not None:
             title = "Glyph Nanny Report: %s" % os.path.basename(font.path)
-        self.w = vanilla.Window(
-            (600, 400),
+
+        textEditorDescription = dict(
+            type="TextEditor",
+            text=text,
+            height=">=150"
+        )
+        markButtonDescription = dict(
+            identifier="markButton",
+            type="PushButton",
+            text="Mark Glyphs"
+        )
+
+        windowContent = dict(
+            type="VerticalStack",
+            contentDescriptions=[
+                textEditorDescription,
+                markButtonDescription
+            ]
+        )
+        windowDescription = dict(
+            type="Window",
+            size=(600, "auto"),
+            minSize=(200, 200),
             title=title,
-            minSize=(200, 200)
+            contentDescription=windowContent
         )
-        self.w.reportView = vanilla.TextEditor(
-            "auto",
-            text
-        )
-        self.w.markButton = vanilla.Button(
-            "auto",
-            "Mark Glyphs",
-            callback=self.markButtonCallback
+        self.w = ezui.makeItem(
+            windowDescription,
+            controller=self
         )
 
-        rules = [
-            "H:|-margin-[reportView]-margin-|",
-            "H:[markButton]-margin-|",
-            "V:|"
-                "-margin-"
-                "[reportView]"
-                "-spacing-"
-                "[markButton]"
-                "-margin-"
-              "|"
-        ]
-        self.w.addAutoPosSizeRules(rules, metrics)
-
+    def started(self):
         self.w.open()
 
     def markButtonCallback(self, sender):

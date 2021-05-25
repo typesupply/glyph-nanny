@@ -1,146 +1,159 @@
-import AppKit
-import vanilla
+import ezui
 from . import defaults
-from .testTabs import TestTabs, metrics
+from .testTabs import makeTestsTableDescription
 
 
-class GlyphNannyDefaultsWindow:
+class GlyphNannyDefaultsWindow(ezui.WindowController):
 
-    def __init__(self):
-        testTabs = TestTabs(
-            "auto",
-            callback=self.testStateCallback
-        )
-
-        width = 270
-        height = 250 + testTabs.height
-        self.w = vanilla.Window(
-            (width, height),
-            "Glyph Nanny Preferences"
-        )
-
+    def build(self):
         # Live Report
-
-        self.w.displayLiveReportCheckbox = vanilla.CheckBox(
-            "auto",
-            "Show Live Report",
-            value=defaults.getDisplayLiveReport(),
-            callback=self.displayLiveReportCheckboxCallback
+        liveReportCheckboxDescription = dict(
+            identifier="liveReport",
+            type="Checkbox",
+            text="Show Live Report",
+            value=defaults.getDisplayLiveReport()
         )
 
         # Tests
-
-        self.w.testStatesGroup = testTabs
+        testsTableDescription = makeTestsTableDescription()
 
         # Colors
-
-        self.w.colorGroup = vanilla.VerticalStackGroup(
-            "auto",
-            spacing=10
+        informationColorWell = dict(
+            identifier="informationColor",
+            type="ColorWell",
+            width=70,
+            height=25,
+            color=tuple(defaults.getColorInform())
         )
-        colors = [
-            ("Information",      defaults.getColorInform(), defaults.setColorInform),
-            ("Review Something", defaults.getColorReview(), defaults.setColorReview),
-            ("Insert Something", defaults.getColorInsert(), defaults.setColorInsert),
-            ("Remove Something", defaults.getColorRemove(), defaults.setColorRemove)
+        reviewColorWell = dict(
+            identifier="reviewColor",
+            type="ColorWell",
+            width=70,
+            height=25,
+            color=tuple(defaults.getColorReview())
+        )
+        insertColorWell = dict(
+            identifier="insertColor",
+            type="ColorWell",
+            width=70,
+            height=25,
+            color=tuple(defaults.getColorInsert())
+        )
+        removeColorWell = dict(
+            identifier="removeColor",
+            type="ColorWell",
+            width=70,
+            height=25,
+            color=tuple(defaults.getColorRemove())
+        )
+        rowDescriptions = [
+            dict(
+                itemDescriptions=[
+                    informationColorWell,
+                    dict(
+                        type="Label",
+                        text="Information"
+                    )
+                ]
+            ),
+            dict(
+                itemDescriptions=[
+                    reviewColorWell,
+                    dict(
+                        type="Label",
+                        text="Review Something"
+                    )
+                ]
+            ),
+            dict(
+                itemDescriptions=[
+                    insertColorWell,
+                    dict(
+                        type="Label",
+                        text="Insert Something"
+                    )
+                ]
+            ),
+            dict(
+                itemDescriptions=[
+                    removeColorWell,
+                    dict(
+                        type="Label",
+                        text="Remove Something"
+                    )
+                ]
+            ),
         ]
-        self.colorSetters = {}
-        for title, color, setMethod in colors:
-            group = ColorGroup(
-                color=color,
-                title=title,
-                callback=self.colorGroupCallback
-            )
-            self.colorSetters[group] = setMethod
-            self.w.colorGroup.addView(group)
+        columnDescriptions = [
+            dict(
+                width=70
+            ),
+            {}
+        ]
+        colorsGridDescription = dict(
+            identifier="colors",
+            type="Grid",
+            rowDescriptions=rowDescriptions,
+            columnPlacement="leading",
+            rowPlacement="center"
+        )
 
         # Titles
-
-        self.w.displayTitlesCheckbox = vanilla.CheckBox(
-            "auto",
-            "Show Report Titles",
-            value=defaults.getDisplayTitles(),
-            callback=self.displayTitlesCheckboxCallback
+        reportTitlesCheckboxDescription = dict(
+            identifier="reportTitles",
+            type="Checkbox",
+            text="Show Live Report",
+            value=defaults.getDisplayTitles()
         )
 
-        rules = [
-            "H:|-margin-[displayLiveReportCheckbox]-margin-|",
-            "H:|-margin-[testStatesGroup]-margin-|",
-            "H:|-margin-[colorGroup]-margin-|",
-            "H:|-margin-[displayTitlesCheckbox]-margin-|",
+        windowContent = dict(
+            identifier="defaultsStack",
+            type="VerticalStack",
+            contentDescriptions=[
+                liveReportCheckboxDescription,
+                testsTableDescription,
+                colorsGridDescription,
+                reportTitlesCheckboxDescription,
+            ],
+            spacing=15
+        )
+        windowDescription = dict(
+            type="Window",
+            size=(270, "auto"),
+            title="Glyph Nanny Preferences",
+            contentDescription=windowContent
+        )
+        self.w = ezui.makeItem(
+            windowDescription,
+            controller=self
+        )
 
-            "V:|"
-                "-margin-"
-                "[displayLiveReportCheckbox]"
-                "-spacing-"
-                "[testStatesGroup]"
-                "-spacing-"
-                "[colorGroup]"
-                "-spacing-"
-                "[displayTitlesCheckbox]"
-                "-margin-"
-              "|"
-        ]
-        self.w.addAutoPosSizeRules(rules, metrics)
-
+    def started(self):
         self.w.open()
+
+    def defaultsStackCallback(self, sender):
+        values = sender.get()
+        defaults.setColorInform(values["colors"]["informationColor"])
+        defaults.setColorReview(values["colors"]["reviewColor"])
+        defaults.setColorInsert(values["colors"]["insertColor"])
+        defaults.setColorRemove(values["colors"]["removeColor"])
+        defaults.setDisplayLiveReport(values["reportTitles"])
+        defaults.setDisplayTitles(values["reportTitles"])
+        for testItem in values["testStates"]:
+            if isinstance(testItem, ezui.TableGroupRow):
+                continue
+            defaults.setTestState(
+                testItem["identifier"],
+                testItem["state"]
+            )
+        self.xxxNotify()
 
     def xxxNotify(self):
         # XXX this will be replaced by something in mojo
         from lib.tools.notifications import PostNotification
         PostNotification("doodle.preferencesChanged")
 
-    def displayLiveReportCheckboxCallback(self, sender):
-        defaults.setDisplayLiveReport(sender.get())
-        self.xxxNotify()
 
-    def displayTitlesCheckboxCallback(self, sender):
-        defaults.setDisplayTitles(sender.get())
-        self.xxxNotify()
-
-    def colorGroupCallback(self, sender):
-        setMethod = self.colorSetters[sender]
-        value = sender.get()
-        setMethod(value)
-        self.xxxNotify()
-
-    def testStateCallback(self, sender):
-        states = sender.get()
-        for testIdentifier, state in states.items():
-            defaults.setTestState(testIdentifier, state)
-        self.xxxNotify()
-
-
-metrics["colorGroupTitlePosition"] = 4
-
-class ColorGroup(vanilla.Group):
-
-    def __init__(self, color, title, callback):
-        super().__init__("auto")
-        self.callback = callback
-        self.colorWell = vanilla.ColorWell(
-            "auto",
-            color=AppKit.NSColor.colorWithCalibratedRed_green_blue_alpha_(*color),
-            callback=self.colorWellCallback
-        )
-        self.title = vanilla.TextBox(
-            "auto",
-            title
-        )
-        rules = [
-            "H:|[colorWell(==70)]-spacing-[title]",
-            "V:|[colorWell(==25)]|",
-            "V:|-colorGroupTitlePosition-[title]|",
-        ]
-        self.addAutoPosSizeRules(rules, metrics)
-
-    def colorWellCallback(self, sender):
-        self.callback(self)
-
-    def get(self):
-        color = self.colorWell.get()
-        color = color.getRed_green_blue_alpha_(None, None, None, None)
-        return color
 
 
 if __name__ == "__main__":
