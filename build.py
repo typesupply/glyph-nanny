@@ -3,7 +3,7 @@
 # -----------------
 
 name = "Glyph Nanny"
-version = "2.0.0.a1"
+version = "2.0"
 developer = "Type Supply"
 developerURL = "http://typesupply.com"
 roboFontVersion = "4.0"
@@ -109,7 +109,7 @@ if errors:
 
 if installAfterBuild:
 	print("Installing extension...", end=" ")
-	installDirectory = os.path.expanduser("~/Library/Application Support/RoboFont/plugins4")
+	installDirectory = os.path.expanduser("~/Library/Application Support/RoboFont/plugins")
 	installPath = os.path.join(installDirectory, extensionFile)
 	if os.path.exists(installPath):
 		shutil.rmtree(installPath)

@@ -1,4 +1,5 @@
 import ezui
+from mojo.events import postEvent
 from . import defaults
 from .testTabs import makeTestsTableDescription
 
@@ -102,7 +103,7 @@ class GlyphNannyDefaultsWindow(ezui.WindowController):
         reportTitlesCheckboxDescription = dict(
             identifier="reportTitles",
             type="Checkbox",
-            text="Show Live Report",
+            text="Show Titles",
             value=defaults.getDisplayTitles()
         )
 
@@ -146,15 +147,6 @@ class GlyphNannyDefaultsWindow(ezui.WindowController):
                 testItem["identifier"],
                 testItem["state"]
             )
-        self.xxxNotify()
-
-    def xxxNotify(self):
-        # XXX this will be replaced by something in mojo
-        from lib.tools.notifications import PostNotification
-        PostNotification("doodle.preferencesChanged")
-
-
-
-
-if __name__ == "__main__":
-    GlyphNannyDefaultsWindow()
+        postEvent(
+            defaults.defaultKeyStub + ".defaultsChanged"
+        )

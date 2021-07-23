@@ -1,5 +1,6 @@
 import merz
 from mojo.UI import getDefault
+from mojo.events import addObserver, removeObserver
 from mojo.subscriber import Subscriber, registerGlyphEditorSubscriber
 from . import defaults
 from .tests.registry import testRegistry
@@ -13,6 +14,11 @@ class GlyphNannyEditorDisplayManager(Subscriber):
 
     def build(self):
         self.loadUserDefaults()
+        addObserver(
+            self,
+            "extensionDefaultsChanged",
+            defaults.defaultKeyStub + ".defaultsChanged"
+        )
         self.inactiveTests = set()
 
         self.glyphInfoLevelTests = []
@@ -52,8 +58,16 @@ class GlyphNannyEditorDisplayManager(Subscriber):
         self.buildGlyphContainers()
 
     def destroy(self):
+        removeObserver(
+            self,
+            defaults.defaultKeyStub + ".defaultsChanged"
+        )
         self.container.clearSublayers()
         self.container.clearAnimation()
+
+    def extensionDefaultsChanged(self, event):
+        self.loadUserDefaults()
+        self.updateLayers(forceUpdate=True)
 
     # -----------------
     # App Subscriptions
