@@ -1,2 +1,4 @@
 
 *.pyc
+.nova/Artwork
+.nova/Configuration.json

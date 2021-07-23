@@ -6,18 +6,15 @@
 	<array>
 		<dict>
 			<key>path</key>
-			<string>glyphNannyToggleObserverVisibility.py</string>
+			<string>menu_toggleObserverVisibility.py</string>
 			<key>preferredName</key>
 			<string>Show/Hide Live Report</string>
 			<key>shortKey</key>
-			<array>
-				<integer>262144</integer>
-				<string>r</string>
-			</array>
+			<string></string>
 		</dict>
 		<dict>
 			<key>path</key>
-			<string>glyphNannyShowFontTester.py</string>
+			<string>menu_showFontTester.py</string>
 			<key>preferredName</key>
 			<string>Show Full Font Report</string>
 			<key>shortKey</key>
@@ -25,7 +22,7 @@
 		</dict>
 		<dict>
 			<key>path</key>
-			<string>glyphNannyShowPrefs.py</string>
+			<string>menu_showPrefs.py</string>
 			<key>preferredName</key>
 			<string>Edit Preferences</string>
 			<key>shortKey</key>
@@ -33,24 +30,24 @@
 		</dict>
 	</array>
 	<key>developer</key>
-	<string>http://tools.typesupply.com</string>
+	<string>Type Supply</string>
 	<key>developerURL</key>
-	<string>Type Supply LLC</string>
+	<string>http://typesupply.com</string>
 	<key>html</key>
 	<false/>
 	<key>launchAtStartUp</key>
-	<integer>1</integer>
+	<true/>
 	<key>mainScript</key>
-	<string>glyphNanny.py</string>
+	<string>launch.py</string>
 	<key>name</key>
 	<string>Glyph Nanny</string>
+	<key>requiresVersionMajor</key>
+	<string>4</string>
+	<key>requiresVersionMinor</key>
+	<string>0</string>
 	<key>timeStamp</key>
-	<real>1408123037.3503079</real>
+	<real>1627057503.4783401</real>
 	<key>version</key>
-	<string>0.4.2</string>
-	<key>repository</key>
-	<string>typesupply/glyph-nanny</string>
-	<key>extensionPath</key>
-	<string>Glyph Nanny.roboFontExt</string>
+	<string>2.0</string>
 </dict>
 </plist>

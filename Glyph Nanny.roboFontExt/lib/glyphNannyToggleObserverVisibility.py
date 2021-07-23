@@ -1,3 +1,0 @@
-from glyphNanny import toggleObserverVisibility
-
-toggleObserverVisibility()

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<glyph name="Agrave" format="2">
+	<unicode hex="00C0"/>
+	<advance width="901"/>
+	<outline>
+		<component base="A"/>
+		<component base="A"/>
+	</outline>
+	<note>
+		This test case is for duplicated components
+	</note>
+</glyph>
