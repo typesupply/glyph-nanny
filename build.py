@@ -3,7 +3,7 @@
 # -----------------
 
 name = "Glyph Nanny"
-version = "2.0"
+version = "2.0.1"
 developer = "Type Supply"
 developerURL = "http://typesupply.com"
 roboFontVersion = "4.0"

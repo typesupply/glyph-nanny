@@ -85,7 +85,7 @@ class GlyphNannyEditorDisplayManager(Subscriber):
         self.buildContourContainers()
         self.updateLayers()
 
-    def roboFontPreferencesChanged(self, info):
+    def roboFontDidChangePreferences(self, info):
         self.loadUserDefaults()
         self.updateLayers(forceUpdate=True)
 
@@ -114,13 +114,13 @@ class GlyphNannyEditorDisplayManager(Subscriber):
     # Glyph
     # -----
 
-    def glyphEditorGlyphInfoDidChange(self, info):
+    def glyphEditorGlyphDidChangeInfo(self, info):
         self.updateLayers()
 
-    def glyphEditorGlyphMetricsDidChange(self, info):
+    def glyphEditorGlyphDidChangeMetrics(self, info):
         self.updateLayers()
 
-    def glyphEditorGlyphContoursDidChange(self, info):
+    def glyphEditorGlyphDidChangeContours(self, info):
         glyph = info["glyph"]
         contours = list(glyph.contours)
         if contours != self.glyphContours:
@@ -128,12 +128,12 @@ class GlyphNannyEditorDisplayManager(Subscriber):
             self.buildContourContainers()
         self.updateLayers()
 
-    glyphEditorGlyphContoursDidChangeDelay = 0
+    glyphEditorGlyphDidChangeContoursDelay = 0
 
-    def glyphEditorGlyphComponentsDidChange(self, info):
+    def glyphEditorGlyphDidChangeComponents(self, info):
         self.updateLayers()
 
-    glyphEditorGlyphComponentsDidChangeDelay = 0
+    glyphEditorGlyphDidChangeComponentsDelay = 0
 
     # ----------------
     # Layer Management
