@@ -138,7 +138,7 @@ class GlyphNannyDefaultsWindow(ezui.WindowController):
         defaults.setColorReview(values["colors"]["reviewColor"])
         defaults.setColorInsert(values["colors"]["insertColor"])
         defaults.setColorRemove(values["colors"]["removeColor"])
-        defaults.setDisplayLiveReport(values["reportTitles"])
+        defaults.setDisplayLiveReport(values["liveReport"])
         defaults.setDisplayTitles(values["reportTitles"])
         for testItem in values["testStates"]:
             if isinstance(testItem, ezui.TableGroupRow):
