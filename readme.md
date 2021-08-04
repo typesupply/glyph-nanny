@@ -65,6 +65,14 @@ print(report)
 
 ## Versions
 
+### 2.0.2
+
+- Fixed some embarrassing mistakes on outdated Subscriber method names. (Hey! Glyph Nanny really did make me come up with the idea for Subscriber and it really did drive the development of Subscriber!)
+- The report titles option in the preferences now works.
+- Added an option for setting if you want tests to occur during drag or after the drag is complete.
+- Changed the default behavior to process tests after a drag is complete rather than during the drag. This makes everything feel exponentially faster.
+- Fixed a bug that caused all tests to be on by default.
+
 ### 2.0
 
 - Everything has been updated for RoboFont 4.
