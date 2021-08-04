@@ -19,7 +19,6 @@ class GlyphNannyEditorDisplayManager(Subscriber):
             "extensionDefaultsChanged",
             defaults.defaultKeyStub + ".defaultsChanged"
         )
-        self.inactiveTests = set()
 
         self.glyphInfoLevelTests = []
         self.metricsLevelTests = []
