@@ -8,6 +8,7 @@ from .tests.registry import testRegistry
 defaultKeyStub = "com.typesupply.GlyphNanny2."
 defaults = {
     defaultKeyStub + "displayLiveReport" : True,
+    defaultKeyStub + "testDuringDrag" : False,
     defaultKeyStub + "displayTitles" : True,
     defaultKeyStub + "colorInform" : (0, 0, 0.7, 0.3),
     defaultKeyStub + "colorReview" : (1, 0.7, 0, 0.7),
@@ -45,6 +46,14 @@ def getDisplayLiveReport():
 
 def setDisplayLiveReport(value):
     setExtensionDefault(defaultKeyStub + "displayLiveReport", value)
+
+# Test During Drag
+
+def getTestDuringDrag():
+    return getExtensionDefault(defaultKeyStub + "testDuringDrag")
+
+def setTestDuringDrag(value):
+    setExtensionDefault(defaultKeyStub + "testDuringDrag", value)
 
 # Titles
 

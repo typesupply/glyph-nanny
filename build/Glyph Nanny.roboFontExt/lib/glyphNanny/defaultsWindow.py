@@ -15,6 +15,14 @@ class GlyphNannyDefaultsWindow(ezui.WindowController):
             value=defaults.getDisplayLiveReport()
         )
 
+        # Test During Drag
+        testDuringDragCheckboxDescription = dict(
+            identifier="testDuringDrag",
+            type="Checkbox",
+            text="Test During Drag",
+            value=defaults.getTestDuringDrag()
+        )
+
         # Tests
         testsTableDescription = makeTestsTableDescription()
 
@@ -112,6 +120,7 @@ class GlyphNannyDefaultsWindow(ezui.WindowController):
             type="VerticalStack",
             contentDescriptions=[
                 liveReportCheckboxDescription,
+                testDuringDragCheckboxDescription,
                 testsTableDescription,
                 colorsGridDescription,
                 reportTitlesCheckboxDescription,
@@ -139,6 +148,7 @@ class GlyphNannyDefaultsWindow(ezui.WindowController):
         defaults.setColorInsert(values["colors"]["insertColor"])
         defaults.setColorRemove(values["colors"]["removeColor"])
         defaults.setDisplayLiveReport(values["liveReport"])
+        defaults.setTestDuringDrag(values["testDuringDrag"])
         defaults.setDisplayTitles(values["reportTitles"])
         for testItem in values["testStates"]:
             if isinstance(testItem, ezui.TableGroupRow):

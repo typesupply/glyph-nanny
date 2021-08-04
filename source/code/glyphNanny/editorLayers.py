@@ -95,6 +95,7 @@ class GlyphNannyEditorDisplayManager(Subscriber):
 
     def loadUserDefaults(self):
         self.showReport = defaults.getDisplayLiveReport()
+        self.testDuringDrag = defaults.getTestDuringDrag()
         self.colorBackground = getDefault("glyphViewBackgroundColor")
         self.colorReview = defaults.getColorReview()
         self.colorRemove = defaults.getColorRemove()
@@ -114,6 +115,14 @@ class GlyphNannyEditorDisplayManager(Subscriber):
     # Glyph
     # -----
 
+    def _get_feedbackUpdateSpeed(self):
+        if self.testDuringDrag:
+            return 0
+        return 0.05
+
+    glyphEditorGlyphDidChangeContoursDelay = property(_get_feedbackUpdateSpeed)
+    glyphEditorGlyphDidChangeComponentsDelay = property(_get_feedbackUpdateSpeed)
+
     def glyphEditorGlyphDidChangeInfo(self, info):
         self.updateLayers()
 
@@ -128,12 +137,8 @@ class GlyphNannyEditorDisplayManager(Subscriber):
             self.buildContourContainers()
         self.updateLayers()
 
-    glyphEditorGlyphDidChangeContoursDelay = 0
-
     def glyphEditorGlyphDidChangeComponents(self, info):
         self.updateLayers()
-
-    glyphEditorGlyphDidChangeComponentsDelay = 0
 
     # ----------------
     # Layer Management
