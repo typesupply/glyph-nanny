@@ -160,3 +160,15 @@ class GlyphNannyDefaultsWindow(ezui.WindowController):
         postEvent(
             defaults.defaultKeyStub + ".defaultsChanged"
         )
+
+    haveShownTestDuringDragNote = False
+
+    def testDuringDragCallback(self, sender):
+        if not self.haveShownTestDuringDragNote:
+            self.showMessage(
+                "This change will take effect after RoboFont is restarted.",
+                "You'll have to restart RoboFont yourself."
+            )
+            self.haveShownTestDuringDragNote = True
+        stack = self.w.findItem("defaultsStack")
+        self.defaultsStackCallback(stack)

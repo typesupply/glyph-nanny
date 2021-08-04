@@ -95,7 +95,6 @@ class GlyphNannyEditorDisplayManager(Subscriber):
 
     def loadUserDefaults(self):
         self.showReport = defaults.getDisplayLiveReport()
-        self.testDuringDrag = defaults.getTestDuringDrag()
         self.colorBackground = getDefault("glyphViewBackgroundColor")
         self.colorReview = defaults.getColorReview()
         self.colorRemove = defaults.getColorRemove()
@@ -116,7 +115,7 @@ class GlyphNannyEditorDisplayManager(Subscriber):
     # -----
 
     def _get_feedbackUpdateSpeed(self):
-        if self.testDuringDrag:
+        if defaults.getTestDuringDrag():
             return 0
         return 0.05
 
