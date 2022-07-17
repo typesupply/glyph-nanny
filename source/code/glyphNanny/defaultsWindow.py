@@ -118,7 +118,7 @@ class GlyphNannyDefaultsWindow(ezui.WindowController):
         windowContent = dict(
             identifier="defaultsStack",
             type="VerticalStack",
-            contentDescriptions=[
+            contents=[
                 liveReportCheckboxDescription,
                 testDuringDragCheckboxDescription,
                 testsTableDescription,
@@ -131,7 +131,7 @@ class GlyphNannyDefaultsWindow(ezui.WindowController):
             type="Window",
             size=(270, "auto"),
             title="Glyph Nanny Preferences",
-            contentDescription=windowContent
+            content=windowContent
         )
         self.w = ezui.makeItem(
             windowDescription,
@@ -143,10 +143,10 @@ class GlyphNannyDefaultsWindow(ezui.WindowController):
 
     def defaultsStackCallback(self, sender):
         values = sender.get()
-        defaults.setColorInform(values["colors"]["informationColor"])
-        defaults.setColorReview(values["colors"]["reviewColor"])
-        defaults.setColorInsert(values["colors"]["insertColor"])
-        defaults.setColorRemove(values["colors"]["removeColor"])
+        defaults.setColorInform(values["informationColor"])
+        defaults.setColorReview(values["reviewColor"])
+        defaults.setColorInsert(values["insertColor"])
+        defaults.setColorRemove(values["removeColor"])
         defaults.setDisplayLiveReport(values["liveReport"])
         defaults.setTestDuringDrag(values["testDuringDrag"])
         defaults.setDisplayTitles(values["reportTitles"])

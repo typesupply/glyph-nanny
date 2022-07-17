@@ -30,7 +30,7 @@ class GlyphNannyFontTestWindow(ezui.WindowController):
         windowContent = dict(
             identifier="settingsStack",
             type="VerticalStack",
-            contentDescriptions=[
+            contents=[
                 testsTableDescription,
                 ignoreOverlapCheckBox,
                 testCurrentFontButton,
@@ -41,7 +41,7 @@ class GlyphNannyFontTestWindow(ezui.WindowController):
             type="Window",
             size=(270, "auto"),
             title="Glyph Nanny",
-            contentDescription=windowContent
+            content=windowContent
         )
         self.w = ezui.makeItem(
             windowDescription,
@@ -111,7 +111,7 @@ class FontReportWindow(ezui.WindowController):
 
         windowContent = dict(
             type="VerticalStack",
-            contentDescriptions=[
+            contents=[
                 textEditorDescription,
                 markButtonDescription
             ]
@@ -121,7 +121,7 @@ class FontReportWindow(ezui.WindowController):
             size=(600, "auto"),
             minSize=(200, 200),
             title=title,
-            contentDescription=windowContent
+            content=windowContent
         )
         self.w = ezui.makeItem(
             windowDescription,
