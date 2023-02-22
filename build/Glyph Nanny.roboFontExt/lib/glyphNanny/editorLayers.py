@@ -162,6 +162,7 @@ class GlyphNannyEditorDisplayManager(Subscriber):
         layer = self.container.appendTextLineSublayer(
             name="glyphInfo",
             position=(30, -50),
+            visible=False,
             **textProperties
         )
         layer.setInfoValue("representedValue", None)
@@ -169,6 +170,7 @@ class GlyphNannyEditorDisplayManager(Subscriber):
         layer = self.container.appendTextLineSublayer(
             name="metrics",
             position=(30, -10),
+            visible=False,
             **textProperties
         )
         layer.setInfoValue("representedValue", None)
@@ -258,6 +260,7 @@ class GlyphNannyEditorDisplayManager(Subscriber):
         layer = self.container.getSublayer("glyphInfo")
         if self.glyph is None or not self.showReport:
             layer.clearSublayers()
+            layer.setVisible(False)
             return
         glyphInfoData = {}
         for testIdentifier in self.glyphInfoLevelTests:
@@ -266,18 +269,23 @@ class GlyphNannyEditorDisplayManager(Subscriber):
             representationName = testRegistry[testIdentifier]["representationName"]
             glyphInfoData[testIdentifier] = self.glyph.getRepresentation(representationName)
         representedValue = layer.getInfoValue("representedValue")
+
         if glyphInfoData != representedValue:
+            visible = False
             layer.setInfoValue("representedValue", glyphInfoData)
             text = []
             for key, value in sorted(glyphInfoData.items()):
                 text += value
             text = "\n".join(text)
             layer.setText(text)
+            visible = bool(text)
+            layer.setVisible(visible)
 
     def _updateMetricsLayer(self):
         layer = self.container.getSublayer("metrics")
         if self.glyph is None or not self.showReport:
             layer.clearSublayers()
+            layer.setVisible(False)
             return
         metricsData = {}
         for testIdentifier in self.metricsLevelTests:
@@ -287,6 +295,7 @@ class GlyphNannyEditorDisplayManager(Subscriber):
             metricsData[testIdentifier] = self.glyph.getRepresentation(representationName)
         representedValue = layer.getInfoValue("representedValue")
         if metricsData != representedValue:
+            visible = False
             layer.clearSublayers()
             layer.setInfoValue("representedValue", metricsData)
             arrowSettings = self.getArrowSymbolSettings()
@@ -318,6 +327,7 @@ class GlyphNannyEditorDisplayManager(Subscriber):
                         **textProperties
                     )
                     y += offset
+                    visible = True
                 else:
                     left = data["left"]
                     right = data["right"]
@@ -340,6 +350,7 @@ class GlyphNannyEditorDisplayManager(Subscriber):
                             text=leftMessage,
                             **textProperties
                         )
+                        visible = True
                     if rightMessage:
                         layer.appendLineSublayer(
                             startPoint=(right, y),
@@ -356,7 +367,9 @@ class GlyphNannyEditorDisplayManager(Subscriber):
                             text=rightMessage,
                             **textProperties
                         )
+                        visible = True
                     y += offset
+            layer.setVisible(visible)
 
     def _updateLayer(self, layer, obj, testIdentifier, forceUpdate):
         if testIdentifier in self.inactiveTests or not self.showReport:
