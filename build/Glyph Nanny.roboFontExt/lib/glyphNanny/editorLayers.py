@@ -329,8 +329,8 @@ class GlyphNannyEditorDisplayManager(Subscriber):
                     y += offset
                     visible = True
                 else:
-                    left = data["left"]
-                    right = data["right"]
+                    left = data["left"] or 0
+                    right = data["right"] or 0
                     width = data["width"]
                     leftMessage = data["leftMessage"]
                     rightMessage = data["rightMessage"]
