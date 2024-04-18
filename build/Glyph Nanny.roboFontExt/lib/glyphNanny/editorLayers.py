@@ -1,7 +1,16 @@
 import merz
-from mojo.UI import getDefault
-from mojo.events import addObserver, removeObserver
-from mojo.subscriber import Subscriber, registerGlyphEditorSubscriber
+from mojo.UI import (
+    getDefault,
+    appearanceColorKey
+)
+from mojo.events import (
+    addObserver,
+    removeObserver
+)
+from mojo.subscriber import (
+    Subscriber,
+    registerGlyphEditorSubscriber
+)
 from . import defaults
 from .tests.registry import testRegistry
 from .tests.tools import (
@@ -92,9 +101,13 @@ class GlyphNannyEditorDisplayManager(Subscriber):
     # User Defaults
     # -------------
 
+    def roboFontAppearanceChanged(self, info):
+        self.loadUserDefaults()
+        self.updateLayers(forceUpdate=True)
+
     def loadUserDefaults(self):
         self.showReport = defaults.getDisplayLiveReport()
-        self.colorBackground = getDefault("glyphViewBackgroundColor")
+        self.colorBackground = getDefault(appearanceColorKey("glyphViewBackgroundColor"))
         self.colorReview = defaults.getColorReview()
         self.colorRemove = defaults.getColorRemove()
         self.colorInsert = defaults.getColorInsert()

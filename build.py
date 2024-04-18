@@ -98,7 +98,7 @@ if os.path.exists(requirementsPath):
 	with open(requirementsPath) as requirements:
 	    B.requirements = requirements.read()
 print("Building extension...", end=" ")
-v = B.save(extensionPath, libPath=libPath, pycOnly=pycOnly, htmlPath=docPath, resourcesPath=resourcesPath)
+v = B.save(extensionPath, libFolder=libPath, htmlFolder=docPath, resourcesFolder=resourcesPath)
 print("done!")
 errors = B.validationErrors()
 if errors:
