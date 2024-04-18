@@ -70,6 +70,7 @@ print(report)
 - Text background colors now follow the dark/light mode settings.
 - Fixed an issue with open contours in the duplicate contour test.
 - Added a test for unnecessary non-extreme curve points.
+- The font test window works again.
 
 ### 2.0.4
 

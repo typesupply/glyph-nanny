@@ -59,16 +59,16 @@ class GlyphNannyFontTestWindow(ezui.WindowController):
         self._processFont(font)
 
     def _processFont(self, font):
-        values = self.w.findItem("settingsStack")
+        values = self.w.getItem("settingsStack")
         tests = []
-        for testItem in self.w.findItem("testStates").get():
+        for testItem in self.w.getItem("testStates").get():
             if isinstance(testItem, ezui.TableGroupRow):
                 continue
             identifier = testItem["identifier"]
             state = testItem["state"]
             if state:
                 tests.append(identifier)
-        ignoreOverlap = self.w.findItem("ignoreOverlap").get()
+        ignoreOverlap = self.w.getItem("ignoreOverlap").get()
         # progressBar = self.startProgress(tickCount=len(font))
         if ignoreOverlap:
             fontToTest = font.copy()
@@ -86,12 +86,16 @@ class GlyphNannyFontTestWindow(ezui.WindowController):
             pass
             # progressBar.close()
         text = formatFontReport(report)
-        FontReportWindow(font, text, report.keys())
+        FontReportWindow(
+            font=font,
+            text=text,
+            glyphsWithIssues=report.keys()
+        )
 
 
 class FontReportWindow(ezui.WindowController):
 
-    def build(self, font, text, glyphsWithIssues):
+    def build(self, font=None, text=None, glyphsWithIssues=None):
         self.font = font
         self.glyphsWithIssues = glyphsWithIssues
         title = "Glyph Nanny Report: Unsaved Font"
@@ -100,7 +104,7 @@ class FontReportWindow(ezui.WindowController):
 
         textEditorDescription = dict(
             type="TextEditor",
-            text=text,
+            value=text,
             height=">=150"
         )
         markButtonDescription = dict(
