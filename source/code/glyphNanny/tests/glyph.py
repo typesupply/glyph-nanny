@@ -217,7 +217,8 @@ def testDuplicateContours(glyph):
     contours = {}
     for index, contour in enumerate(glyph):
         contour = contour.copy()
-        contour.autoStartSegment()
+        if not contour.open:
+            contour.autoStartSegment()
         pen = DigestPointPen()
         contour.drawPoints(pen)
         digest = pen.getDigest()
