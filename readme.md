@@ -26,7 +26,7 @@ Glyph Nanny's tests are available through a scripting API that is accessible thr
 
 `registeredTests()`
 
-Returns a dictionary of all registered tests. The kets are the test identifiers and the values are dictionaries of data about the tests.
+Returns a dictionary of all registered tests. The keys are the test identifiers and the values are dictionaries of data about the tests.
 
 `testGlyph(glyph, tests=None)`
 
@@ -64,6 +64,21 @@ print(report)
 ```
 
 ## Versions
+
+### 2.0.5
+
+- Text background colors now follow the dark/light mode settings.
+- Fixed an issue with open contours in the duplicate contour test.
+- Added a test for unnecessary non-extreme curve points.
+
+### 2.0.4
+
+- Made empty Merz layers invisible.
+- Fixed a situation when margin values could be undefined.
+
+### 2.0.3
+
+- Fixed some ezui mistakes.
 
 ### 2.0.2
 
